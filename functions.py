@@ -81,12 +81,11 @@ LENEX_STROKES = {
     'Medley': 'MEDLEY'
 }
 
-# https://fin2022.microplustiming.com/NU_2022_07_28-08_04_Roma_web.php
-f'https://fin2022.microplustiming.com/export/NU_'
 
-def url_util(url: str) -> list :
+def url_util(url: str) -> list:
     output = url.split('NU_')
     return [output[0]+'export/NU_', output[1].replace('_web.php', '')]
+
 
 def scrape_data(url: str):
     url_elab: list = url_util(url)
@@ -96,7 +95,7 @@ def scrape_data(url: str):
         f'{base_url}{event}/NU/CounterGenerale.json?').text[:-2]
     contatori = requests.get(
         f'{base_url}{event}/NU/Contatori.json?x={counter_generale}').json()['contatori']
-    
+
     for obj in contatori:
         # download json
         scraped_data = requests.get(
@@ -114,7 +113,8 @@ def scrape_data(url: str):
             f.write(json.dumps(scraped_data))
             f.close()
 
-def get_event_infos() -> dict:
+
+def get_competition_infos() -> dict:
 
     # reads the first 'result' in the 'results' folder, retrieves generic data and asks to the user the missing infos
     with open(os.listdir('scraped_data/results')[0], 'r') as f:
@@ -140,6 +140,53 @@ def get_event_infos() -> dict:
             }
         }
 
+
+def get_heats(event: dict, eventid: int) -> dict:
+    with open(f'scraped_data/results/NU{event["c0"]}{RACE_CODES[event["d_en"]]}CLAS{event["c2"][-2::]} 001.JSON', 'r') as f:
+        heat_entries: list = json.loads(f.read())['data']
+        heats = {}
+        heat_n = 1
+        for entry in heat_entries:
+            if entry['b'] not in heats.keys():
+                heats[entry['b']] = [{
+                    'daytime': event['h'],
+                    'heatid': f'{heat_n}{"0"*(5-(len(str(heat_n)) + len(str(eventid))))}{eventid}', # heatid is by default 5 char long, composed by the heat's number at the start and event's id at the end, in the middle '0's fill the remaining chars
+                    'number': str(heat_n)
+                }]
+                heat_n = heat_n + 1
+        f.close()
+    return {'heats': dict(sorted(heats.items()))}
+
+
+def get_event_infos(event: dict, eventid: int, filename: str) -> dict:
+    swimstyle_split = event["d_en"].split('m')
+    return {
+        'session': int(filename[15:-5:]),
+        'name': event["d_en"],
+        'category': event['c0'],
+        'race_code': RACE_CODES[event["d_en"]],
+        'race_type': event['c2'],
+        # results filename
+        'jsonfilename': f'NU{event["c0"]}{RACE_CODES[event["d_en"]]}CLAS{event["c2"][-2::]} 001.JSON',
+        'lenex': {
+            'event': {
+                'eventid': str(eventid),
+                'number': RACE_CODES[event["d_en"]],
+                # '-1' means that the event is a preliminary or heat, so there isn't "parent" event for the current event.
+                'preveventid': '-1' if (event['c2'] == '001' or event['c2'] == '007') else '00',
+                'gender': event['c0'][-1::],
+                'round': RACE_TYPES[event["c2"]]['lenex'],
+                'daytime': event['h']
+            },
+            'swimstyle': {
+                'distance': swimstyle_split[0].strip() if 'x' not in swimstyle_split[0] else swimstyle_split[0].strip().replace('4 x ', ''),
+                'relaycount': '4' if 'x' in swimstyle_split[0].strip() else '1',
+                'stroke':  LENEX_STROKES[swimstyle_split[1].strip()]
+            }
+        }
+    }
+
+
 def get_sessions() -> dict:
 
     events = []
@@ -152,35 +199,11 @@ def get_sessions() -> dict:
         file = os.path.join('scraped_data/schedules/by_date', filename)
         if os.path.isfile(file):
             with open(file, 'r') as f:
-                data = json.loads(f.read())['e']
+                data: list = json.loads(f.read())['e']
                 for event in data:
-                    # makes less 'spagetti-code' lines 161-163
-                    swimstyle_split = event["d_en"].split('m')
-                    race = {
-                        'session': int(filename[15:-5:]),
-                        'name': event["d_en"],
-                        'category': event['c0'],
-                        'race_code': RACE_CODES[event["d_en"]],
-                        'race_type': event['c2'],
-                        # results filename
-                        'jsonfilename': f'NU{event["c0"]}{RACE_CODES[event["d_en"]]}CLAS{event["c2"][-2::]} 001.JSON',
-                        'lenex': {
-                            'event': {
-                                'eventid': str(eventid),
-                                'number': RACE_CODES[event["d_en"]],
-                                # '-1' means that the event is a preliminary or heat, so there isn't "parent" event for the current event. '00' values will be updated @ lines 175-180
-                                'preveventid': '-1' if (event['c2'] == '001' or event['c2'] == '007') else '00',
-                                'gender': event['c0'][-1::],
-                                'round': RACE_TYPES[event["c2"]]['lenex'],
-                                'daytime': event['h']
-                            },
-                            'swimstyle': {
-                                'distance': swimstyle_split[0].strip() if 'x' not in swimstyle_split[0] else swimstyle_split[0].strip().replace('4 x ', ''),
-                                'relaycount': '4' if 'x' in swimstyle_split[0].strip() else '1',
-                                'stroke':  LENEX_STROKES[swimstyle_split[1].strip()]
-                            }
-                        }
-                    }
+                    infos = get_event_infos(event, eventid, filename)
+                    heats = get_heats(event, eventid)
+                    race = infos | heats
                     # if the event is a preliminary or heat, put race_code, eventid and -current event's- category into the prelims list
                     if race['lenex']['event']['preveventid'] == '-1':
                         prelims_eventid.append({
@@ -191,7 +214,7 @@ def get_sessions() -> dict:
                     eventid = eventid + 1
                     events.append(race)
                 f.close()
-    
+
     for race in events:
         # if event has a prev_event, the parent event in the prelims list. This script is designed for 'normal' event, no semis. # TODO: handle semis (and quarters)
         if race['lenex']['event']['preveventid'] == '00':
@@ -201,9 +224,9 @@ def get_sessions() -> dict:
 
     sessions = {}
     for event in events:  # append event to the corresponding key, which is the session's number
-        try:
+        if event['session'] in sessions.keys():
             sessions[event['session']].append(event)
-        except KeyError:  # create key is doesn't exists
+        else:
             sessions[event['session']] = [event]
     sessions = dict(sorted(sessions.items()))
 
