@@ -8,9 +8,6 @@ import inquirer
 import xml.etree.cElementTree as ET
 import xml.dom.minidom
 
-# TODO: #1 setup python env, (do in at the end)
-
-
 def scrape_data(url: str) -> None:
     url_elab: list = utils.url(url)
     base_url = url_elab[0]

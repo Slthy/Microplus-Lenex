@@ -7,9 +7,9 @@ Web scraper and Lenex encoder for swimming events hosted by Microplus s.r.l
 
 ### Executing program
 
-To execute the code, first you have to
+To execute the code, first you have to:
 
-1) To download the project, clone this repo with:
+1) download the project, clone this repo with:
 ```
 git clone https://github.com/Slthy/Microplus-Lenex
 ```
