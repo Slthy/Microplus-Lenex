@@ -8,7 +8,8 @@ import inquirer
 import xml.etree.cElementTree as ET
 import xml.dom.minidom
 
-#TODO: #1 setup python env, (do in at the end)
+# TODO: #1 setup python env, (do in at the end)
+
 
 def scrape_data(url: str) -> None:
     url_elab: list = utils.url(url)
@@ -44,38 +45,40 @@ def get_competition_infos() -> dict:
     with open(f"scraped_data/results/{os.listdir('scraped_data/results')[0]}", 'r') as f:
         data = json.loads(f.read())
         pool_length_code = inquirer.prompt([inquirer.List('length', message="Pool Length", choices=[
-                            'SCM', 'LCM'])])['length']
-        return { # this script is specifically designed to scrape data from Microplus' systems #TODO: maybe put these infos directly in the xml
-                'constructor': {
-                    'name': 'Microplus Informatica Srl',
-                    'zip': 'IT-12030',
-                    'city': 'Marene',
-                    'email': 'mbox@microplus.it',
-                    'internet': 'https://www.microplus.it'
-                },
-                'event': {  # generic data about the competition's venue
-                    'name': data['Export']['ExpName'],
-                    'desciption': data['Export']['ExpDescr'],
-                    'city': data['Event']['Place'].split(',')[0],
-                    'nation': 'ITA' if data['Event']['Place'].split(',')[0] == 'Roma'
-                    else input(f'insert nation (city: {data["Event"]["Place"].split(",")[0]}): '),
-                    'course': pool_length_code,  # TODO: #2 check?, inquirer module
-                    'timing': "AUTOMATIC",
-                    'pool_lane_min': '0',
-                    'pool_lane_max': '10'
-                },
-                'pool_length': 50 if pool_length_code == 'LCM' else 25
-            }
+            'SCM', 'LCM'])])['length']
+        return {  # this script is specifically designed to scrape data from Microplus' systems #TODO: maybe put these infos directly in the xml
+            'constructor': {
+                'name': 'Microplus Informatica Srl',
+                'zip': 'IT-12030',
+                'city': 'Marene',
+                'email': 'mbox@microplus.it',
+                'internet': 'https://www.microplus.it'
+            },
+            'event': {  # generic data about the competition's venue
+                'name': data['Export']['ExpName'],
+                'desciption': data['Export']['ExpDescr'],
+                'city': data['Event']['Place'].split(',')[0],
+                'nation': 'ITA' if data['Event']['Place'].split(',')[0] == 'Roma'
+                else input(f'insert nation (city: {data["Event"]["Place"].split(",")[0]}): '),
+                'course': pool_length_code,  # TODO: #2 check?, inquirer module
+                'timing': "AUTOMATIC",
+                'pool_lane_min': '0',
+                'pool_lane_max': '10'
+            },
+            'pool_length': 50 if pool_length_code == 'LCM' else 25
+        }
 
 
-def get_entry_time(category: str, race_code, event_type: str, PlaCod: str) -> str: # returns the entry time in an event for a given athlete
+# returns the entry time in an event for a given athlete
+def get_entry_time(category: str, race_code, event_type: str, PlaCod: str) -> str:
     with open(f'scraped_data/startlists/NU{category}{utils.RACE_CODES[race_code]}STAR{event_type} 001.JSON', 'r') as f:
         for entry in json.loads(f.read())['data']:
             if entry['PlaCod'] == PlaCod:
                 return utils.format_time(entry['MemIscr'])
 
 
-def get_heats(event: dict, eventid: int, pool_length: int) -> dict: # returns LENEX 'heats' component for the given event and all the athlete entries 
+# returns LENEX 'heats' component for the given event and all the athlete entries
+def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
     with open(f'scraped_data/results/NU{event["c0"]}{utils.RACE_CODES[event["d_en"]]}CLAS{event["c2"][::2]} 001.JSON', 'r') as f:
         heat_entries: list = json.loads(f.read())
         data: list = heat_entries['data']
@@ -85,10 +88,12 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict: # returns LE
         for entry in data:
             entrytime = get_entry_time(
                 event["c0"], event["d_en"], event["c2"][::2], entry['PlaCod'])
-            heatid = f'{heat_n}{"0"*(5-(len(str(heat_n)) + len(str(eventid))))}{eventid}' # 'heatid' is composed of the heat's at the head, eventid at the tail, filled in between by '0's
+            # 'heatid' is composed of the heat's at the head, eventid at the tail, filled in between by '0's
+            heatid = f'{heat_n}{"0"*(5-(len(str(heat_n)) + len(str(eventid))))}{eventid}'
             swimtime = utils.format_time(entry['MemPrest'])
             splits = []
-            for index, time in enumerate(entry['MemFields'][1:]): #first element is blank every time, so we cut it
+            # first element is blank every time, so we cut it
+            for index, time in enumerate(entry['MemFields'][1:]):
                 if time['V'] == "":
                     break
 
@@ -195,7 +200,7 @@ def convert_to_lenex(pool_length: int) -> dict:
                 for event in data:
                     infos = get_event_infos(event, eventid, filename)
                     heats_data = get_heats(event, eventid, pool_length)
-                    race = infos | {'heats' : heats_data['heats']}
+                    race = infos | {'heats': heats_data['heats']}
                     athletes_entries = athletes_entries + heats_data['entries']
                     # if the event is a preliminary or heat, put race_code, eventid and -current event's- category into the prelims list
                     if race['lenex']['event']['preveventid'] == '-1':
@@ -241,7 +246,7 @@ def convert_to_lenex(pool_length: int) -> dict:
         club_name = entry['athlete_infos']['team']['name']
         athleteid = entry['athlete_infos']['athleteid']
 
-        if club_name not in clubs.keys(): # new club 
+        if club_name not in clubs.keys():  # new club
             club_infos = entry['athlete_infos']['team']
             del entry['athlete_infos']['team']
 
@@ -255,7 +260,8 @@ def convert_to_lenex(pool_length: int) -> dict:
                     }
                 }
             }
-        elif athleteid not in clubs[club_name]['athletes'].keys(): # club already in 'clubs' dict, new athlete to add
+        # club already in 'clubs' dict, new athlete to add
+        elif athleteid not in clubs[club_name]['athletes'].keys():
             del entry['athlete_infos']['team']
 
             clubs[club_name]['athletes'][athleteid] = {
@@ -263,7 +269,7 @@ def convert_to_lenex(pool_length: int) -> dict:
                 'entries': [entry['entry']],
                 'results': [entry['result']]
             }
-        else: # both club and athlete are in the respective dicts, append new data to 'entries' and 'results' field
+        else:  # both club and athlete are in the respective dicts, append new data to 'entries' and 'results' field
             clubs[club_name]['athletes'][athleteid]['entries'].append(
                 entry['entry'])
             clubs[club_name]['athletes'][athleteid]['results'].append(
@@ -274,120 +280,123 @@ def convert_to_lenex(pool_length: int) -> dict:
 
 def build_lenex() -> None:
     competition_infos = get_competition_infos()
-    data: dict = competition_infos | convert_to_lenex(competition_infos['pool_length'])
+    data: dict = competition_infos | convert_to_lenex(
+        competition_infos['pool_length'])
     m_encoding = 'utf-8'
     root = ET.Element("LENEX", version="3.0")
-    constructor = ET.SubElement(root, "CONSTRUCTOR", name=data['constructor']['name'])
+    constructor = ET.SubElement(
+        root, "CONSTRUCTOR", name=data['constructor']['name'])
     ET.SubElement(constructor, "CONTACT", {
-        'name' : data['constructor']['name'], 
-        'zip' : data['constructor']['zip'],
-        'city' : data['constructor']['city'],
-        'email' : data['constructor']['email'],
-        'internet' : data['constructor']['internet'],
+        'name': data['constructor']['name'],
+        'zip': data['constructor']['zip'],
+        'city': data['constructor']['city'],
+        'email': data['constructor']['email'],
+        'internet': data['constructor']['internet'],
     })
     meets = ET.SubElement(root, "MEETS")
     meet = ET.SubElement(meets, "MEET", {
-        'name' : data['event']['name'],
-        'city' : data['event']['city'],
-        'nation' : data['event']['nation'],
-        'course' : data['event']['course'],
-        'timing' : data['event']['timing']
+        'name': data['event']['name'],
+        'city': data['event']['city'],
+        'nation': data['event']['nation'],
+        'course': data['event']['course'],
+        'timing': data['event']['timing']
     })
-    pool = ET.SubElement(meet, "POOL", {
-        'pool_lane_min' : data['event']['pool_lane_min'],
-        'pool_lane_max' : data['event']['pool_lane_max']
+    ET.SubElement(meet, "POOL", {
+        'pool_lane_min': data['event']['pool_lane_min'],
+        'pool_lane_max': data['event']['pool_lane_max']
     })
-    pointtable = ET.SubElement(meet, "POINTTABLE", {
-        'name' : 'FINA Point Scoring',
-        'version' : '2004'
+    ET.SubElement(meet, "POINTTABLE", {
+        'name': 'FINA Point Scoring',
+        'version': '2004'
     })
     sessions = ET.SubElement(meet, "SESSIONS")
     for n in data['sessions'].keys():
         session_data = data['sessions'][n]
         session = ET.SubElement(sessions, "SESSION", {
-            'number' : session_data['infos']['number'],
-            'date' : session_data['infos']['date'],
-            'daytime' : session_data['infos']['daytime']
+            'number': session_data['infos']['number'],
+            'date': session_data['infos']['date'],
+            'daytime': session_data['infos']['daytime']
         })
-        pool2 = ET.SubElement(session, "POOL", {
-        'pool_lane_min' : data['event']['pool_lane_min'],
-        'pool_lane_max' : data['event']['pool_lane_max']
+        ET.SubElement(session, "POOL", {
+            'pool_lane_min': data['event']['pool_lane_min'],
+            'pool_lane_max': data['event']['pool_lane_max']
         })
         events = ET.SubElement(session, "EVENTS")
         for e in session_data['events']:
             event = ET.SubElement(events, "EVENT", {
-                'eventid' : e['lenex']['event']['eventid'],
-                'number' : e['lenex']['event']['number'],
-                'preveventid' : e['lenex']['event']['preveventid'],
-                'gender' : e['lenex']['event']['gender'],
-                'round' : e['lenex']['event']['round'],
-                'daytime' : e['lenex']['event']['daytime']
+                'eventid': e['lenex']['event']['eventid'],
+                'number': e['lenex']['event']['number'],
+                'preveventid': e['lenex']['event']['preveventid'],
+                'gender': e['lenex']['event']['gender'],
+                'round': e['lenex']['event']['round'],
+                'daytime': e['lenex']['event']['daytime']
             })
-            swimstyle = ET.SubElement(event, "SWIMSTYLE", {
-                'distance' : e['lenex']['swimstyle']['distance'],
-                'relaycount' : e['lenex']['swimstyle']['relaycount'],
-                'stroke' : e['lenex']['swimstyle']['stroke']
+            ET.SubElement(event, "SWIMSTYLE", {
+                'distance': e['lenex']['swimstyle']['distance'],
+                'relaycount': e['lenex']['swimstyle']['relaycount'],
+                'stroke': e['lenex']['swimstyle']['stroke']
             })
             heats = ET.SubElement(event, "HEATS")
             for h in e['heats'].keys():
-                heats_data = e['heats'][h]
-                heat = ET.SubElement(heats, "HEAT", {
-                    'daytime' : e['heats'][h]['daytime'],
-                    'heatid' : e['heats'][h]['heatid'],
-                    'number' : e['heats'][h]['number'],
+                e['heats'][h]
+                ET.SubElement(heats, "HEAT", {
+                    'daytime': e['heats'][h]['daytime'],
+                    'heatid': e['heats'][h]['heatid'],
+                    'number': e['heats'][h]['number'],
                 })
-    
+
     clubs = ET.SubElement(meet, "CLUBS")
     for c in data['clubs'].keys():
         club_infos = data['clubs'][c]['infos']
         club = ET.SubElement(clubs, "CLUB", {
-            'name' : club_infos['name'],
-            'shortname' : club_infos['shortname'],
-            'code' : club_infos['code'],
-            'nation' : club_infos['nation'],
-            'type' : club_infos['type']
+            'name': club_infos['name'],
+            'shortname': club_infos['shortname'],
+            'code': club_infos['code'],
+            'nation': club_infos['nation'],
+            'type': club_infos['type']
         })
         athletes = ET.SubElement(club, "ATHLETES")
         for a in data['clubs'][c]['athletes'].keys():
             athlete_infos = data['clubs'][c]['athletes'][a]['athlete_infos']
             athlete = ET.SubElement(athletes, "ATHLETE", {
-                'athleteid' : athlete_infos['athleteid'],
-                'lastname' : athlete_infos['lastname'],
-                'firstname' : athlete_infos['firstname'],
-                'gender' : athlete_infos['gender'],
-                'birthdate' : athlete_infos['birthdate']
+                'athleteid': athlete_infos['athleteid'],
+                'lastname': athlete_infos['lastname'],
+                'firstname': athlete_infos['firstname'],
+                'gender': athlete_infos['gender'],
+                'birthdate': athlete_infos['birthdate']
             })
             entries = ET.SubElement(athlete, "ENTRIES")
             for e in data['clubs'][c]['athletes'][a]['entries']:
                 entry = ET.SubElement(entries, "ENTRY", {
-                    'entrytime' : e['entrytime'],
-                    'eventid' : e['eventid'],
-                    'heat' : e['heat'],
-                    'lane' : e['lane']
+                    'entrytime': e['entrytime'],
+                    'eventid': e['eventid'],
+                    'heat': e['heat'],
+                    'lane': e['lane']
                 })
-                meetinfo = ET.SubElement(entry, "MEETINFO", date=e['meetinfo'])
+                ET.SubElement(entry, "MEETINFO", date=e['meetinfo'])
             results = ET.SubElement(athlete, "RESULTS")
             for r in data['clubs'][c]['athletes'][a]['results']:
                 result = ET.SubElement(results, "RESULT", {
-                    'eventid' : r['eventid'],
-                    'place' : r['place'],
-                    'lane' : r['lane'],
-                    'heat' : r['heat'],
-                    'heatid' : r['heatid'],
-                    'swimtime' : r['swimtime'],
-                    'reactiontime' : r['reactiontime']
+                    'eventid': r['eventid'],
+                    'place': r['place'],
+                    'lane': r['lane'],
+                    'heat': r['heat'],
+                    'heatid': r['heatid'],
+                    'swimtime': r['swimtime'],
+                    'reactiontime': r['reactiontime']
                 })
                 splits = ET.SubElement(result, "SPLITS")
                 for s in r['splits']:
-                    split = ET.SubElement(splits, "SPLIT", {
-                        'distance' : s['distance'],
-                        'swimtime' : s['swimtime']
+                    ET.SubElement(splits, "SPLIT", {
+                        'distance': s['distance'],
+                        'swimtime': s['swimtime']
                     })
-    
+
     dom = xml.dom.minidom.parseString(ET.tostring(root))
     xml_string = dom.toprettyxml()
     part1, part2 = xml_string.split('?>')
 
     with open("processed_data/lenex.lef", 'w') as xfile:
-        xfile.write(part1 + 'encoding=\"{}\" standalone="no"?>\n'.format(m_encoding) + part2)
+        xfile.write(
+            part1 + 'encoding=\"{}\" standalone="no"?>\n'.format(m_encoding) + part2)
         xfile.close()
