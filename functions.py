@@ -73,66 +73,150 @@ def get_entry_time(category: str, race_code, event_type: str, PlaCod: str) -> st
             if entry['PlaCod'] == PlaCod:
                 return utils.format_time(entry['MemIscr'])
 
+def get_relay_splits(entry: dict, pool_length: int, gender: str):
+    splits = []
+    player_positions = []
+    for player in entry['Players']:
+        player_positions.append({
+            'number' : str(len(player_positions) + 1),
+            'athleteid' : player['PlaCod'],
+            'reactiontime' : player['PlaRT'],
+            'lastname': player['PlaSurname'],
+            'firstname': player['PlaName'],
+            'gender': gender,
+            'birthdate': player['PlaBirth'],
+            'team': {
+                'name': entry['TeamDescrIta'],
+                'shortname': entry['TeamDescrItaVis'],
+                'code': entry['PlaNat'],
+                'nation': entry['PlaNat'],
+                'type': 'CLUB'  # hardcoded
+            }
+        })
+        player_splits = []
+        for i in range(1, 5):
+            try:
+                if player[f'PlaInt{i}'] == '':
+                    continue
+                player_splits.append(utils.format_time(player[f'PlaInt{i}']))
+            except IndexError:
+                continue
+        if len(splits) < 4:
+            splits = player_splits
+        else:
+            for i in range(len(player_splits)):
+                t1 = splits[-1]
+                t2 = player_splits[i]
+                if i == 0:
+                    splits.append(utils.add_times(t1, t2, "00:00:00.00"))
+                else:
+                    splits.append(utils.add_times(t1, t2, player_splits[i-1]))
+    return {
+        'data' : [{
+            'distance': str(pool_length*index + pool_length),
+            'swimtime': splits[index-1],
+        } for index in range(len(splits))],
+        'player_positions': player_positions
+    }#in athlete, only entry, no result <ENTRY entrytime="NT" eventid="48" />
+
 
 # returns LENEX 'heats' component for the given event and all the athlete entries
 def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
     with open(f'scraped_data/results/NU{event["c0"]}{utils.RACE_CODES[event["d_en"]]}CLAS{event["c2"][::2]} 001.JSON', 'r') as f:
-        heat_entries: list = json.loads(f.read())
+        heat_entries: dict = json.loads(f.read())
         data: list = heat_entries['data']
-        athlete_entries = []
+        entries = {
+            'type' : 'relays' if 'Players' in data[0].keys() else 'heats',
+            'data' : []
+        }
         heats = {}
         heat_n = 1
         for entry in data:
-            entrytime = get_entry_time(
-                event["c0"], event["d_en"], event["c2"][::2], entry['PlaCod'])
             # 'heatid' is composed of the heat's at the head, eventid at the tail, filled in between by '0's
             heatid = f'{heat_n}{"0"*(5-(len(str(heat_n)) + len(str(eventid))))}{eventid}'
-            swimtime = utils.format_time(entry['MemPrest'])
-            splits = []
-            # first element is blank every time, so we cut it
-            for index, time in enumerate(entry['MemFields'][1:]):
-                if time['V'] == "":
-                    break
-
-                splits.append({
-                    'distance': str(pool_length*index + pool_length),
-                    'swimtime': utils.format_time(time['V'])
-                })
-
-            athlete_entries.append({
-                'athlete_infos': {
-                    # TODO: #5 swimrankings codes if possible (and needed)
-                    'athleteid': entry['PlaCod'],
-                    'lastname': entry['PlaSurname'],
-                    'firstname': entry['PlaName'],
-                    'gender': event["c0"][-1],
-                    'birthdate': entry['PlaBirth'],
-                    'team': {
-                        'name': entry['TeamDescrIta'],
-                        'shortname': entry['TeamDescrItaVis'],
-                        'code': entry['PlaNat'],
-                        'nation': entry['PlaNat'],
-                        'type': 'CLUB'  # hardcoded
+            if 'Players' in entry.keys(): #relay event
+                splits = get_relay_splits(entry, pool_length, heat_entries['Category']['Cod'][-1])
+                athletes = []
+                relay = ({
+                    'relay_infos': {
+                        # TODO: #5 swimrankings codes if possible (and needed)
+                        'gender': event["c0"][-1] if event["c0"][-1] in ['M', 'F'] else 'X',
+                        'team': {
+                            'name': entry['TeamDescrIta'],
+                            'shortname': entry['TeamDescrItaVis'],
+                            'code': entry['PlaTeamCod'],
+                            'nation': entry['PlaNat'],
+                            'type': 'CLUB'  # hardcoded
+                        }
+                    },
+                    'result': {
+                        'eventid': str(eventid),
+                        'place': entry['PlaCls'],
+                        'lane': entry['PlaLane'],
+                        'heat': str(heat_n),
+                        'heatid': str(heatid),
+                        'swimtime': utils.format_time(entry['MemPrest']),
+                        'reactiontime': '',  # TODO: #6 check if value is given in other microplus events
+                        'splits': splits
                     }
-                },
-                'entry': {
-                    'eventid': str(eventid),
-                    'entrytime': entrytime,
-                    'heat': entry['b'],
-                    'lane': entry['PlaLane'],
-                    'meetinfo': heat_entries['Heat']['UffDate']
-                },
-                'result': {
-                    'eventid': str(eventid),
-                    'place': entry['PlaCls'],
-                    'lane': entry['PlaLane'],
-                    'heat': str(heat_n),
-                    'heatid': str(heatid),
-                    'swimtime': swimtime,
-                    'reactiontime': '',  # TODO: #6 check if value is given in other microplus events
-                    'splits': splits
-                }
-            })
+                })
+                for player in splits['player_positions']:
+                    athletes.append({
+                        'athlete_infos': player,
+                        'entry': {
+                            'eventid': str(eventid),
+                            'entrytime': 'NT'
+                        }
+                    })
+                entries['data'].append({
+                    'relay': relay,
+                    'athletes': athletes
+                })
+            else: # single event
+                entrytime = get_entry_time(event["c0"], event["d_en"], event["c2"][::2], entry['PlaCod'])
+                splits = []
+                for index, time in enumerate(entry['MemFields'][1:]):  # first element is blank every time, so we cut it
+                    if time['V'] == "":
+                        break
+                    splits.append({
+                        'distance': str(pool_length*index + pool_length),
+                        'swimtime': utils.format_time(time['V'])
+                    })
+                
+                entries['data'].append({
+                    'athlete_infos': {
+                        # TODO: #5 swimrankings codes if possible (and needed)
+                        'athleteid': entry['PlaCod'],
+                        'lastname': entry['PlaSurname'],
+                        'firstname': entry['PlaName'],
+                        'gender': event["c0"][-1],
+                        'birthdate': entry['PlaBirth'],
+                        'team': {
+                            'name': entry['TeamDescrIta'],
+                            'shortname': entry['TeamDescrItaVis'],
+                            'code': entry['PlaNat'],
+                            'nation': entry['PlaNat'],
+                            'type': 'CLUB'  # hardcoded
+                        }
+                    },
+                    'entry': {
+                        'eventid': str(eventid),
+                        'entrytime': entrytime,
+                        'heat': entry['b'],
+                        'lane': entry['PlaLane'],
+                        'meetinfo': heat_entries['Heat']['UffDate']
+                    },
+                    'result': {
+                        'eventid': str(eventid),
+                        'place': entry['PlaCls'],
+                        'lane': entry['PlaLane'],
+                        'heat': str(heat_n),
+                        'heatid': str(heatid),
+                        'swimtime': utils.format_time(entry['MemPrest']),
+                        'reactiontime': '',  # TODO: #6 check if value is given in other microplus events
+                        'splits': splits
+                    }
+                })
             if entry['b'] not in heats.keys():
                 heats[entry['b']] = {
                     # TODO: #7 check for possible bug regarding this field, sometimes is empty
@@ -143,8 +227,7 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                 }
                 heat_n = heat_n + 1
         f.close()
-    return {'heats': dict(sorted(heats.items())), 'entries': athlete_entries}
-
+    return {'heats': dict(sorted(heats.items())), 'entries': entries}
 
 def get_event_infos(event: dict, eventid: int, filename: str) -> dict:
     swimstyle_split = event["d_en"].split('m')
@@ -184,7 +267,11 @@ def convert_to_lenex(pool_length: int) -> dict:
     events = []
     prelims_eventid = []
     eventid = 1
-    athletes_entries = []
+    entries = {
+        'athletes' : [],
+        'relays' : []
+    }
+    
 
     # create directory to store the processed data
     pathlib.Path('processed_data').mkdir(parents=True, exist_ok=True)
@@ -198,7 +285,10 @@ def convert_to_lenex(pool_length: int) -> dict:
                     infos = get_event_infos(event, eventid, filename)
                     heats_data = get_heats(event, eventid, pool_length)
                     race = infos | {'heats': heats_data['heats']}
-                    athletes_entries = athletes_entries + heats_data['entries']
+                    if heats_data['entries']['type'] == 'heats':
+                        entries['athletes'] += heats_data['entries']['data']
+                    else:
+                        entries['relays'] += heats_data['entries']['data']
                     # if the event is a preliminary or heat, put race_code, eventid and -current event's- category into the prelims list
                     if race['lenex']['event']['preveventid'] == '-1':
                         prelims_eventid.append({
@@ -239,38 +329,69 @@ def convert_to_lenex(pool_length: int) -> dict:
             f.close()
 
     clubs = {}
-    for entry in athletes_entries:
-        club_name = entry['athlete_infos']['team']['name']
-        athleteid = entry['athlete_infos']['athleteid']
+    for entry in entries['athletes']:
+        infos = entry['athlete_infos']
+        club_name = infos['team']['name']
+        athleteid = infos['athleteid']
 
         if club_name not in clubs.keys():  # new club
-            club_infos = entry['athlete_infos']['team']
-            del entry['athlete_infos']['team']
+            club_infos = infos['team']
+            del infos['team']
 
             clubs[club_name] = {
                 'infos': club_infos,
                 'athletes': {
                     athleteid: {
-                        'athlete_infos': entry['athlete_infos'],
+                        'athlete_infos': infos,
                         'entries': [entry['entry']],
                         'results': [entry['result']]
                     }
-                }
+                },
+                'relays': []
             }
         # club already in 'clubs' dict, new athlete to add
         elif athleteid not in clubs[club_name]['athletes'].keys():
-            del entry['athlete_infos']['team']
+            del infos['team']
 
             clubs[club_name]['athletes'][athleteid] = {
-                'athlete_infos': entry['athlete_infos'],
+                'athlete_infos': infos,
                 'entries': [entry['entry']],
                 'results': [entry['result']]
             }
-        else:  # both club and athlete are in the respective dicts, append new data to 'entries' and 'results' field
+        else:  # both club and athlete are in the c/a dicts, append new data to 'entries' and 'results' field
             clubs[club_name]['athletes'][athleteid]['entries'].append(
                 entry['entry'])
             clubs[club_name]['athletes'][athleteid]['results'].append(
                 entry['result'])
+    
+    for entry in entries['relays']:
+        club_name = entry['relay']['relay_infos']['team']['name']
+
+        if club_name not in clubs.keys():  # new club
+
+            clubs[club_name] = {
+                'infos': entry['relay']['relay_infos']['team'],
+                'athletes': {},
+                'relays': [entry]
+            }
+            for athlete in entry:
+                clubs[club_name]['athletes'][athleteid] = {
+                    'athlete_infos': athlete['athlete_infos'],
+                    'entries': [athlete['entry']]
+                }
+        elif athleteid not in clubs[club_name]['athletes'].keys():
+
+            for athlete in entry['athletes']:
+                clubs[club_name]['athletes'][athleteid] = {
+                    'athlete_infos': athlete['athlete_infos'],
+                    'entries': [athlete['entry']]
+                }
+            clubs[club_name]['relays'].append(entry)
+            
+        else:  # both club and athlete are in the respective dicts, append new data to 'entries' and 'results' field
+            clubs[club_name]['athletes'][athleteid]['entries'].append(
+                athlete['entry'])
+            clubs[club_name]['relays'].append(entry)
 
     return {'sessions': sessions, 'clubs': clubs}
 
@@ -279,7 +400,6 @@ def build_lenex() -> None:
     competition_infos = get_competition_infos()
     data: dict = competition_infos | convert_to_lenex(
         competition_infos['pool_length'])
-    m_encoding = 'utf-8'
     root = ET.Element("LENEX", version="3.0")
     constructor = ET.SubElement(
         root, "CONSTRUCTOR", name=data['constructor']['name'])
@@ -320,6 +440,7 @@ def build_lenex() -> None:
         })
         events = ET.SubElement(session, "EVENTS")
         for e in session_data['events']:
+            
             event = ET.SubElement(events, "EVENT", {
                 'eventid': e['lenex']['event']['eventid'],
                 'number': e['lenex']['event']['number'],
@@ -335,7 +456,7 @@ def build_lenex() -> None:
             })
             heats = ET.SubElement(event, "HEATS")
             for h in e['heats'].keys():
-                e['heats'][h]
+                
                 ET.SubElement(heats, "HEAT", {
                     'daytime': e['heats'][h]['daytime'],
                     'heatid': e['heats'][h]['heatid'],
@@ -353,8 +474,9 @@ def build_lenex() -> None:
             'type': club_infos['type']
         })
         athletes = ET.SubElement(club, "ATHLETES")
-        for a in data['clubs'][c]['athletes'].keys():
-            athlete_infos = data['clubs'][c]['athletes'][a]['athlete_infos']
+        club_athletes = data['clubs'][c]['athletes']
+        for a in club_athletes.keys():
+            athlete_infos = club_athletes[a]['athlete_infos']
             athlete = ET.SubElement(athletes, "ATHLETE", {
                 'athleteid': athlete_infos['athleteid'],
                 'lastname': athlete_infos['lastname'],
@@ -363,37 +485,82 @@ def build_lenex() -> None:
                 'birthdate': athlete_infos['birthdate']
             })
             entries = ET.SubElement(athlete, "ENTRIES")
-            for e in data['clubs'][c]['athletes'][a]['entries']:
-                entry = ET.SubElement(entries, "ENTRY", {
-                    'entrytime': e['entrytime'],
-                    'eventid': e['eventid'],
-                    'heat': e['heat'],
-                    'lane': e['lane']
-                })
-                ET.SubElement(entry, "MEETINFO", date=e['meetinfo'])
-            results = ET.SubElement(athlete, "RESULTS")
-            for r in data['clubs'][c]['athletes'][a]['results']:
+            for e in club_athletes[a]['entries']:
+                if 'meetinfo' in e.keys(): # single event race-entry
+                    entry = ET.SubElement(entries, "ENTRY", {
+                        'entrytime': e['entrytime'],
+                        'eventid': e['eventid'],
+                        'heat': e['heat'],
+                        'lane': e['lane']
+                    })
+                    ET.SubElement(entry, "MEETINFO", date=e['meetinfo'])
+                else: # relay event race-entry
+                    entry = ET.SubElement(entries, "ENTRY", {
+                        'entrytime': e['entrytime'],
+                        'eventid': e['eventid']
+                    })
+            if 'results' in club_athletes[a].keys(): #an athlete may not have reced in a signle events, but only in relays, so no results.
+                results = ET.SubElement(athlete, "RESULTS")
+                for r in club_athletes[a]['results']:
+                    result = ET.SubElement(results, "RESULT", {
+                        'eventid': r['eventid'],
+                        'place': r['place'],
+                        'lane': r['lane'],
+                        'heat': r['heat'],
+                        'heatid': r['heatid'],
+                        'swimtime': r['swimtime'],
+                        'reactiontime': r['reactiontime']
+                    })
+                    splits = ET.SubElement(result, "SPLITS")
+                    for s in r['splits']:
+                        ET.SubElement(splits, "SPLIT", {
+                            'distance': s['distance'],
+                            'swimtime': s['swimtime']
+                        })
+        if len(data['clubs'][c]['relays']) > 0:
+            relays = ET.SubElement(club, "RELAYS")
+            for r in data['clubs'][c]['relays']:
+                relay_data = r['relay']
+                relay = ET.SubElement(relays, "RELAY", {
+                        'number': '1', # only one relay per team is allowed in supported championships
+                        'agemax': '-1', # TODO: hande categories in junior events
+                        'agemin': '-1', # '-1' value is default value
+                        'agetotalmax': '-1',
+                        'gender': relay_data['relay_infos']['gender'],
+                        'name': relay_data['relay_infos']['team']['name']
+                    })
+                results = ET.SubElement(relay, "RESULTS")
+                
                 result = ET.SubElement(results, "RESULT", {
-                    'eventid': r['eventid'],
-                    'place': r['place'],
-                    'lane': r['lane'],
-                    'heat': r['heat'],
-                    'heatid': r['heatid'],
-                    'swimtime': r['swimtime'],
-                    'reactiontime': r['reactiontime']
+                    'eventid': relay_data['result']['eventid'],
+                    'place': relay_data['result']['place'],
+                    'lane': relay_data['result']['lane'],
+                    'heat': relay_data['result']['heat'],
+                    'heatid': relay_data['result']['heatid'],
+                    'swimtime': relay_data['result']['swimtime'],
+                    'reactiontime': relay_data['result']['reactiontime']
                 })
                 splits = ET.SubElement(result, "SPLITS")
-                for s in r['splits']:
+                for s in relay_data['result']['splits']['data']:
                     ET.SubElement(splits, "SPLIT", {
                         'distance': s['distance'],
                         'swimtime': s['swimtime']
                     })
+                
+                player_positions = ET.SubElement(result, "RELAYPOSITIONS")
+                for p in relay_data['result']['splits']['player_positions']:
+                    ET.SubElement(player_positions, "RELAYPOSITION", {
+                        'number': p['number'],
+                        'athleteid': p['athleteid'],
+                        'reactiontime': p['reactiontime']
+                    })
 
+            
     dom = xml.dom.minidom.parseString(ET.tostring(root))
     xml_string = dom.toprettyxml()
     part1, part2 = xml_string.split('?>')
 
     with open("processed_data/lenex.lef", 'w') as xfile:
         xfile.write(
-            part1 + 'encoding=\"{}\" standalone="no"?>\n'.format(m_encoding) + part2)
+            part1 + 'encoding=\"{}\" standalone="no"?>\n'.format('utf-8') + part2)
         xfile.close()

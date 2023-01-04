@@ -92,10 +92,19 @@ def swrid(lastname: str, firstname: str): #query-search athlete through swimraki
 
 
 def format_time(time: str) -> str:
-    if len(time) > 4:  # valid entrytime
-        if len(time) > 5:  # entrytime with minutes
+    if len(time) > 4:  # valid time
+        if len(time) > 5:  # time with minutes, seconds, decimals
             return datetime.datetime.strptime(time, "%M'%S.%f").strftime("%H:%M:%S.%f")[:-4]
-        else:
+        else: # time with seconds, decimals
             return datetime.datetime.strptime(time, "%S.%f").strftime("%H:%M:%S.%f")[:-4]
     else:  # dnf, ...
         return 'NT'
+
+def add_times(t1, t2, time_zero):
+    t1 = datetime.datetime.strptime(t1, '%H:%M:%S.%f')
+    t2 = datetime.datetime.strptime(t2, '%H:%M:%S.%f')
+    time_zero = datetime.datetime.strptime(time_zero, '%H:%M:%S.%f')
+    result = str((t2 - time_zero + t1).time())
+    if len(result) == 8: #no decimals
+        result = datetime.datetime.strptime(result, "%H:%M:%S").strftime("%H:%M:%S.%f")
+    return result[:-4]
