@@ -131,5 +131,3 @@ dmypy.json
 # custom
 scraped_data/
 processed_data/
-examples/only_event.lef
-notes
