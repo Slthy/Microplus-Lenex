@@ -11,18 +11,16 @@ import filecmp
 
 
 def scrape_data(url: str) -> None:
-    url_elab: list = utils.url(url)
-    base_url = url_elab[0]
-    event = url_elab[1]
+    url = url.replace('/NU', '/export/NU').replace('_web.php', '')
     counter_generale = requests.get(
-        f'{base_url}{event}/NU/CounterGenerale.json?').text[:-2]
+        f'{url}/NU/CounterGenerale.json?').text[:-2]
     contatori = requests.get(
-        f'{base_url}{event}/NU/Contatori.json?x={counter_generale}').json()['contatori']
+        f'{url}/NU/Contatori.json?x={counter_generale}').json()['contatori']
 
     for obj in contatori:
         # download json
         scraped_data = requests.get(
-            f'{base_url}{event}/NU/{obj["nomefile"]}?x={obj["counter"]}').json()
+            f'{url}/NU/{obj["nomefile"]}?x={obj["counter"]}').json()
 
         # assigns a category to the downloaded json. This category will also be part of its filepath
         file_type = utils.FILE_TYPES.get(obj['cod'], "other")
