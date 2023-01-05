@@ -35,7 +35,6 @@ def scrape_data(url: str) -> None:
         # write file into category path
         with open(f'scraped_data/{utils.FILE_TYPES[file_type]}/{scraped_data["jsonfilename"]}', 'w') as f:
             f.write(json.dumps(scraped_data))
-            f.close()
 
 
 def get_competition_infos() -> dict:
@@ -226,7 +225,6 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                     'number': str(heat_n)
                 }
                 heat_n = heat_n + 1
-        f.close()
     return {'heats': dict(sorted(heats.items())), 'entries': entries}
 
 
@@ -296,7 +294,6 @@ def convert_to_lenex(pool_length: int) -> dict:
                         })
                     eventid = eventid + 1
                     events.append(race)
-                f.close()
 
     for race in events:
         # if event has a prev_event, the parent event in the prelims list. This script is designed for 'normal' event, no semis. # TODO: #8 handle semis (and quarters)
@@ -324,7 +321,6 @@ def convert_to_lenex(pool_length: int) -> dict:
                 },
                 'events': sessions[key]
             }
-            f.close()
 
     clubs = {}
     for entry in entries['athletes']:
@@ -564,12 +560,10 @@ def build_lenex() -> None:
 def write_file(xml_data: str):
     with open("processed_data/lenex.lef", 'w') as xfile:
         xfile.write(xml_data)
-        xfile.close()
 
 
 def debug(xml_data: str):
     with open("processed_data/lenex_refactor.lef", 'w') as xfile:
         xfile.write(xml_data)
-        xfile.close()
     print(
         f'check: {filecmp.cmp("processed_data/lenex_refactor.lef", "processed_data/lenex.lef", shallow=False)}')
