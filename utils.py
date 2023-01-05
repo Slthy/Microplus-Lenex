@@ -80,11 +80,6 @@ LENEX_STROKES = {
 }
 
 
-def url(url: str) -> list:
-    output = url.split('NU_')
-    return [output[0]+'export/NU_', output[1].replace('_web.php', '')]
-
-
 def swrid(lastname: str, firstname: str): #query-search athlete through swimrakings.net, returns its swrid (swimrakings id)
     html_res = requests.get(
         f'https://www.swimrankings.net/index.php?&internalRequest=athleteFind&athlete_clubId=-1&athlete_gender=-1&athlete_lastname={lastname}&athlete_firstname={firstname}')
