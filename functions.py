@@ -25,15 +25,14 @@ def scrape_data(url: str) -> None:
             f'{base_url}{event}/NU/{obj["nomefile"]}?x={obj["counter"]}').json()
 
         # assigns a category to the downloaded json. This category will also be part of its filepath
-        file_type = obj['cod'] if obj['cod'] in utils.FILE_TYPES.keys(
-        ) else 'other'
+        file_type = utils.FILE_TYPES.get(obj['cod'], "other")
 
         # create directory for a new type of file
         pathlib.Path(
-            f'scraped_data/{utils.FILE_TYPES[file_type]}').mkdir(parents=True, exist_ok=True)
+            f'scraped_data/{file_type}').mkdir(parents=True, exist_ok=True)
 
         # write file into category path
-        with open(f'scraped_data/{utils.FILE_TYPES[file_type]}/{scraped_data["jsonfilename"]}', 'w') as f:
+        with open(f'scraped_data/{file_type}/{scraped_data["jsonfilename"]}', 'w') as f:
             f.write(json.dumps(scraped_data))
 
 
