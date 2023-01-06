@@ -91,13 +91,16 @@ def swrid(lastname: str, firstname: str) -> Optional[str]: #query-search athlete
 
 def format_time(time: str) -> str:
     # Time too short, invalid (e.g. "dnf")
+    if '*' in time: # remove '*' from entrytimes
+        time = time.replace('*', '')
+        
     if len(time) < 4:
         return "NT"
-    else: # valid time
-        if len(time) > 5:  # time with minutes, seconds, decimals
-            return datetime.strptime(time, "%M'%S.%f").strftime("%H:%M:%S.%f")[:-4]
-        else: # time with seconds, decimals
-            return datetime.strptime(time, "%S.%f").strftime("%H:%M:%S.%f")[:-4]
+    
+    if len(time) > 5:  # time with minutes, seconds, decimals
+        return datetime.strptime(time, "%M'%S.%f").strftime("%H:%M:%S.%f")[:-4]
+    
+    return datetime.strptime(time, "%S.%f").strftime("%H:%M:%S.%f")[:-4]
 
 
 def add_times(t1, t2, time_zero) -> str:
