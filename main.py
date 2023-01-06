@@ -4,7 +4,6 @@ from functions import scrape_data, build_lenex, write_file, debug
 
 
 def main():
-    
     mode = inquirer.prompt([inquirer.List('mode', message="Execution mode", choices=[
                             'Scrape and Compile', 'Compile only', 'Debug'])])['mode']
     if mode == 'Scrape and Compile':

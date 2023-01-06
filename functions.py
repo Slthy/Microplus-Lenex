@@ -11,6 +11,14 @@ import filecmp
 
 
 def scrape_data(url: str) -> None:
+    """Main scraping function.
+
+    Args:
+        url (str): given by the user
+    Returns:
+        None, files are stored automatically in the right folders, execution halts if code fails.
+    """
+    
     url = url.replace('/NU', '/export/NU').replace('_web.php', '')
     counter_generale = requests.get(
         f'{url}/NU/CounterGenerale.json?').text[:-2]
@@ -35,8 +43,11 @@ def scrape_data(url: str) -> None:
 
 
 def get_competition_infos() -> dict:
+    """Reads the first `JSON` file in the `scraped_data/result` direcory, retrieves competition's generic data and asks to the user the missing infos.
 
-    # reads the first 'result' in the 'results' folder, retrieves generic data and asks to the user the missing infos
+    Returns:
+        dict: competition's infos
+    """
     with open(f"scraped_data/results/{os.listdir('scraped_data/results')[0]}", 'r') as f:
         data = json.loads(f.read())
         pool_length_code = inquirer.prompt([inquirer.List('length', message="Pool Length", choices=[
@@ -64,8 +75,18 @@ def get_competition_infos() -> dict:
         }
 
 
-# returns the entry time in an event for a given athlete
-def get_entry_time(category: str, race_code, event_type: str, PlaCod: str) -> str:
+def get_entry_time(category: str, race_code: str, event_type: str, PlaCod: str) -> str:
+    """Returns the entry time in an event for a given athlete.
+
+    Args:
+        category (str): `athlete`'s category
+        race_code (str): `event`'s race code
+        event_type (str): `event`'s event type
+        PlaCod (str): `athlete` id
+
+    Returns:
+        str: `athlete`'s entrytime
+    """
     with open(f'scraped_data/startlists/NU{category}{utils.RACE_CODES[race_code]}STAR{event_type} 001.JSON', 'r') as f:
         for entry in json.loads(f.read())['data']:
             if entry['PlaCod'] == PlaCod:
@@ -73,6 +94,20 @@ def get_entry_time(category: str, race_code, event_type: str, PlaCod: str) -> st
 
 
 def get_relay_splits(entry: dict, pool_length: int, gender: str):
+    """Returns the splits of a given relay
+
+    Args:
+        entry (dict): relay informations
+        pool_length (int): pool length
+        gender (str): relay gender
+            Possible Values:
+                -`M`: male event
+                -`F`: female event
+                -`X`: mixed event
+
+    Returns:
+        dict: relay's splits
+    """
     splits = []
     player_positions = []
     for player in entry['Players']:
@@ -116,8 +151,26 @@ def get_relay_splits(entry: dict, pool_length: int, gender: str):
     }  # in athlete, only entry, no result <ENTRY entrytime="NT" eventid="48" />
 
 
-# returns LENEX 'heats' component for the given event and all the athlete entries
 def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
+    """returns LENEX `heats` component all the athlete entries for a given event
+
+    Args:
+        event (dict): `event` dictionary
+        eventid (int): event id
+        pool_length (int): pool length
+
+    Returns:
+        dict: a dictionary with two keys
+            Keys:
+                -`heats`: heats in the given event
+                -`entries`: dict
+                    Keys:
+                        -`data`: `entries`' data
+                        `type`: `entries`' type
+                            Possible values:
+                                -`relays`: relay event
+                                -`heats`: single event
+    """
     with open(f'scraped_data/results/NU{event["c0"]}{utils.RACE_CODES[event["d_en"]]}CLAS{event["c2"][::2]} 001.JSON', 'r') as f:
         heat_entries: dict = json.loads(f.read())
         data: list = heat_entries['data']
@@ -226,6 +279,16 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
 
 
 def get_event_infos(event: dict, eventid: int, filename: str) -> dict:
+    """Return competition's generic infos
+
+    Args:
+        event (dict): current `event`
+        eventid (int): current `event`'s id
+        filename (str): `event`'s `session` schedule file, stored in `scraped_data/schedules/by_date`
+
+    Returns:
+        dict: competition's infos
+    """
     swimstyle_split = event["d_en"].split('m')
     return {
         'session': int(filename[15:-5:]),
@@ -257,7 +320,18 @@ def get_event_infos(event: dict, eventid: int, filename: str) -> dict:
 
 
 def convert_to_lenex(pool_length: int) -> dict:
+    """Converts scraped data to match `LENEX` documentation
 
+    Args:
+        pool_length (int): pool length
+        
+    Returns:
+        dict: converted data
+            Keys:
+                -`sessions`: LENEX `sessions` collection data
+                -`clubs`: LENEX `clubs` collection data
+    """
+    
     events = []
     prelims_eventid = []
     eventid = 1
@@ -387,7 +461,12 @@ def convert_to_lenex(pool_length: int) -> dict:
     return {'sessions': sessions, 'clubs': clubs}
 
 
-def build_lenex() -> None:
+def build_lenex() -> str:
+    """Main function, elaborates and compile data into a `XML` string
+
+    Returns:
+        str: `XML` string containing the LENEX file
+    """
     competition_infos = get_competition_infos()
     data: dict = competition_infos | convert_to_lenex(
         competition_infos['pool_length'])
