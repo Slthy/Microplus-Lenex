@@ -1,5 +1,7 @@
+from typing import Optional
 import requests
 import datetime
+from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 
 RACE_CODES = {
@@ -80,11 +82,11 @@ LENEX_STROKES = {
 }
 
 
-def swrid(lastname: str, firstname: str): #query-search athlete through swimrakings.net, returns its swrid (swimrakings id)
+def swrid(lastname: str, firstname: str) -> Optional[str]: #query-search athlete through swimrakings.net, returns its swrid (swimrakings id)
     html_res = requests.get(
         f'https://www.swimrankings.net/index.php?&internalRequest=athleteFind&athlete_clubId=-1&athlete_gender=-1&athlete_lastname={lastname}&athlete_firstname={firstname}')
-    return BeautifulSoup(html_res.text, features="html.parser").find('a', href=True)['href'].replace('?page=athleteDetail&athleteId=', '')
-
+    url = BeautifulSoup(html_res.text, features="html.parser").find('a', href=True)['href']
+    return urlparse.parse_qs(urlparse.urlparse(url).query).get('athleteId', [None])[0]
 
 def format_time(time: str) -> str:
     # Time too short, invalid (e.g. "dnf")
@@ -97,7 +99,7 @@ def format_time(time: str) -> str:
             return datetime.datetime.strptime(time, "%S.%f").strftime("%H:%M:%S.%f")[:-4]
 
 
-def add_times(t1, t2, time_zero):
+def add_times(t1, t2, time_zero) -> str:
     t1 = datetime.datetime.strptime(t1, '%H:%M:%S.%f')
     t2 = datetime.datetime.strptime(t2, '%H:%M:%S.%f')
     time_zero = datetime.datetime.strptime(time_zero, '%H:%M:%S.%f')
