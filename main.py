@@ -10,7 +10,7 @@ def main():
     if mode == 'Scrape and Compile':
         scrape_data(inquirer.prompt([inquirer.Text('url', message="Insert competition's url",
                     validate=lambda _, x: re.match(
-                        'https://.*[0-9]+\.microplustiming\.com/NU_([0-9]+(_[0-9]+)+)-([0-9]+(_[0-9]+)+)_[a-zA-Z]+_web\.php', x),
+                        'https://fin\d\d\d\d\.microplustiming\.com/NU_.*web\.php', x),
         )])['url'])
     elif mode == 'Debug':
         debug(build_lenex())

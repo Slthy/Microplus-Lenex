@@ -1,8 +1,10 @@
-from typing import Optional
 import requests
 import datetime
-from urllib.parse import urlparse
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse, parse_qs
+from typing import Optional
+from datetime import datetime
+
 
 RACE_CODES = {
     "50m Freestyle": "001",
@@ -81,12 +83,11 @@ LENEX_STROKES = {
     'Medley': 'MEDLEY'
 }
 
-
 def swrid(lastname: str, firstname: str) -> Optional[str]: #query-search athlete through swimrakings.net, returns its swrid (swimrakings id)
     html_res = requests.get(
         f'https://www.swimrankings.net/index.php?&internalRequest=athleteFind&athlete_clubId=-1&athlete_gender=-1&athlete_lastname={lastname}&athlete_firstname={firstname}')
-    url = BeautifulSoup(html_res.text, features="html.parser").find('a', href=True)['href']
-    return urlparse.parse_qs(urlparse.urlparse(url).query).get('athleteId', [None])[0]
+    url: str = BeautifulSoup(html_res.text, features="html.parser").find('a', href=True)['href']
+    return parse_qs(urlparse(url).query).get('athleteId', [None])[0]
 
 def format_time(time: str) -> str:
     # Time too short, invalid (e.g. "dnf")
@@ -94,16 +95,16 @@ def format_time(time: str) -> str:
         return "NT"
     else: # valid time
         if len(time) > 5:  # time with minutes, seconds, decimals
-            return datetime.datetime.strptime(time, "%M'%S.%f").strftime("%H:%M:%S.%f")[:-4]
+            return datetime.strptime(time, "%M'%S.%f").strftime("%H:%M:%S.%f")[:-4]
         else: # time with seconds, decimals
-            return datetime.datetime.strptime(time, "%S.%f").strftime("%H:%M:%S.%f")[:-4]
+            return datetime.strptime(time, "%S.%f").strftime("%H:%M:%S.%f")[:-4]
 
 
 def add_times(t1, t2, time_zero) -> str:
-    t1 = datetime.datetime.strptime(t1, '%H:%M:%S.%f')
-    t2 = datetime.datetime.strptime(t2, '%H:%M:%S.%f')
-    time_zero = datetime.datetime.strptime(time_zero, '%H:%M:%S.%f')
+    t1 = datetime.strptime(t1, '%H:%M:%S.%f')
+    t2 = datetime.strptime(t2, '%H:%M:%S.%f')
+    time_zero = datetime.strptime(time_zero, '%H:%M:%S.%f')
     result = str((t2 - time_zero + t1).time())
     if len(result) == 8: #no decimals
-        result = datetime.datetime.strptime(result, "%H:%M:%S").strftime("%H:%M:%S.%f")
+        result = datetime.strptime(result, "%H:%M:%S").strftime("%H:%M:%S.%f")
     return result[:-4]
