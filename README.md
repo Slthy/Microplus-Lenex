@@ -5,7 +5,7 @@ Web scraper and Lenex encoder for swimming events hosted by Microplus s.r.l
 
 * Python 3.9+
 
-### Executing program
+### Executing the script
 
 To execute the code, first you have to:
 
@@ -23,6 +23,7 @@ Run the code with:
 python run main.py
 ```
 
+Example url: `https://fin2022.microplustiming.com/NU_2022_07_28-08_04_Roma_web.php`
 ## License
 
 This project is licensed under the MIT License - see the LICENSE.md file for details
