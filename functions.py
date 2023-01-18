@@ -182,7 +182,7 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
         heat_n = 1
         for entry in data:
             # 'heatid' is composed of the heat's at the head, eventid at the tail, filled in between by '0's
-            heatid = f'{heat_n}{"0"*(5-(len(str(heat_n)) + len(str(eventid))))}{eventid}'
+            heatid = f'{heat_n}{"0"*(6-(len(str(heat_n)) + len(str(eventid))))}{eventid}' #handles up to heat_n = 99
             if 'Players' in entry.keys():  # relay event
                 splits = get_relay_splits(
                     entry, pool_length, heat_entries['Category']['Cod'][-1])
