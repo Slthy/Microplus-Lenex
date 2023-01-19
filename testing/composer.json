@@ -1,0 +1,5 @@
+{
+    "require": {
+        "leonverschuren/lenex": "dev-master"
+    }
+}

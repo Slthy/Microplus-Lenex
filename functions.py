@@ -181,8 +181,8 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
         heats = {}
         heat_n = 1
         for entry in data:
-            # 'heatid' is composed of the heat's at the head, eventid at the tail, filled in between by '0's
-            heatid = f'{heat_n}{"0"*(6-(len(str(heat_n)) + len(str(eventid))))}{eventid}' #handles up to heat_n = 99
+            # 'heatid' is composed of the heat's number at the head and eventid at the end
+            heatid = f'{heat_n}-{eventid}'
             if 'Players' in entry.keys():  # relay event
                 splits = get_relay_splits(
                     entry, pool_length, heat_entries['Category']['Cod'][-1])
@@ -267,7 +267,7 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                         'splits': splits
                     }
                 })
-            if entry['b'] not in heats.keys():
+            if entry['b'] not in heats.keys() and heat_n != 1:
                 heats[entry['b']] = {
                     'daytime': heat_entries['Heat']['UffTime'],
                     # heatid is by default 5 char long, composed by the heat's number at the start and event's id at the end, in the middle '0's fill the remaining chars
@@ -351,6 +351,13 @@ def convert_to_lenex(pool_length: int) -> dict:
                 for event in data:
                     infos = get_event_infos(event, eventid, filename)
                     heats_data = get_heats(event, eventid, pool_length)
+                    gender = infos['lenex']['event']['gender']
+                    distance = infos['lenex']['swimstyle']['distance']
+                    swimstyle = infos['lenex']['swimstyle']['stroke']
+                    round = infos['lenex']['event']['round']
+                    
+                    with open(f'heats/{distance}{swimstyle}{gender}-{infos["category"]}-{round}.json', 'w') as f:
+                        f.write(json.dumps(heats_data))
                     race = infos | {'heats': heats_data['heats']}
                     if heats_data['entries']['type'] == 'heats':
                         entries['athletes'] += heats_data['entries']['data']
