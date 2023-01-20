@@ -1,0 +1,85 @@
+LENEX 
+    CONSTRUCTOR 
+        This element contains information about the software, which created the Lenex file and the contact information about the provider of that software.
+        
+        CONTACT o r: Contact information of the provider of the software, which created the Lenex file.
+            email s r
+        name s r
+            Name of the application that created the Lenex file.
+        version s r
+            The version number of the application that created the Lenex file.
+    MEETS
+        MEET
+            city s r
+            name s r
+            nation e r: The three letter code of the nation of the meet city.
+            SESSIONS
+                SESSION
+                    date d r
+                    number n r
+                    EVENTS
+                        EVENT
+                            eventid n r
+                            number n r
+                            -- AGEGROUPS m (not required if the competition's category is OPEN)
+                                AGEGROUP 
+                                    agegroupid n r
+                                        Only for events, every AGEGROUP element needs an id, because the objects can be referenced from ENTRY objects. The id has to be unique within an AGEGROUPS collection.
+                                    agemax n r
+                                        The upper bound of the age range. -1 means no upper bound.
+                                    agemin n r
+                                        The lower bound of the age range. -1 means no lower bound.
+                            RANKINGS
+                                RANKING
+                                    place n r
+                                    resultid n r
+                            HEATS 
+                                HEAT
+                                    agegroupid n
+                                    heatid n r
+                                    number n r
+                            SWIMSTYLE 
+                                distance n r
+                                relaycount n r
+                                stroke e r
+                            JUDGES
+                                JUDGE
+                                    officialid n r
+            CLUBS 
+                CLUB
+                    code n 
+                    ATHLETES
+                        ATHLETE
+                            athleteid n r
+                            birthdate: d r If only the year of birth is known, the date should be set to January 1st of that year.
+                            firstname: s r
+                            gender: e r
+                            lastname: s r
+                            ENTRIES 
+                                ENTRY
+                                    agegroupid n
+                                    eventid n r
+                                    come già programmato
+                            RESULTS
+                                RESULT
+                                    come già programmato
+                                    --resultid
+                                    SPLITS
+                    RELAYS 
+                        RELAY -più o meno già fatto
+                            agemax n r
+                            agemin n r
+                            agetotalmax n r
+                            agetotalmax n r
+                            ENTRIES 
+                                ENTRY
+                                    RELAYPOSITIONS
+                                        RELAYPOSITION
+                                            MEETINFO 
+                            RESULTS
+                                RESULT 
+                                    RELAYPOSITIONS
+                                        RELAYPOSITION 
+                                    SPLITS
+
+

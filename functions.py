@@ -55,10 +55,15 @@ def get_competition_infos() -> dict:
         return {  # this script is specifically designed to scrape data from Microplus' systems
             'constructor': {
                 'name': 'Microplus Informatica Srl',
-                'zip': 'IT-12030',
-                'city': 'Marene',
-                'email': 'mbox@microplus.it',
-                'internet': 'https://www.microplus.it'
+                'registration': 'Scraped and Ecoded by Alessandro Borsato, gh: @Slthy, tw: @aborsato_',
+                'version': '1.0',
+                'CONTACT': {
+                    'city': 'Marene',
+                    'zip': 'IT-12030',
+                    'country': 'ITA',
+                    'email': 'mbox@microplus.it',
+                    'internet': 'https://www.microplus.it'
+                }
             },
             'event': {  # generic data about the competition's venue
                 'name': data['Export']['ExpName'],
@@ -182,7 +187,7 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
         heat_n = 1
         for entry in data:
             # 'heatid' is composed of the heat's number at the head and eventid at the end
-            heatid = f'{heat_n}-{eventid}'
+            heatid = f'{heat_n}000{eventid}'
             if 'Players' in entry.keys():  # relay event
                 splits = get_relay_splits(
                     entry, pool_length, heat_entries['Category']['Cod'][-1])
@@ -208,7 +213,7 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                         'splits': splits
                     }
                 })
-                # append entries in athlete entry-list
+                '''# append entries in athlete entry-list
                 for player in splits['player_positions']:
                     athletes.append({
                         'athlete_infos': player,
@@ -220,7 +225,7 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                 entries['data'].append({
                     'relay': relay,
                     'athletes': athletes
-                })
+                })'''
             else:  # single event
                 entrytime = get_entry_time(
                     event["c0"], event["d_en"], event["c2"][::2], entry['PlaCod'])
@@ -252,7 +257,7 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                     'entry': {
                         'eventid': str(eventid),
                         'entrytime': entrytime,
-                        'heat': entry['b'],
+                        'heat': str(heat_n),
                         'lane': entry['PlaLane'],
                         'meetinfo': heat_entries['Heat']['UffDate']
                     },
@@ -267,14 +272,14 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                         'splits': splits
                     }
                 })
-            if entry['b'] not in heats.keys() and heat_n != 1:
-                heats[entry['b']] = {
+            if str(heat_n) not in heats.keys():
+                heats[str(heat_n)] = {
                     'daytime': heat_entries['Heat']['UffTime'],
-                    # heatid is by default 5 char long, composed by the heat's number at the start and event's id at the end, in the middle '0's fill the remaining chars
                     'heatid': heatid,
                     'number': str(heat_n)
                 }
                 heat_n = heat_n + 1
+                
     return {'heats': dict(sorted(heats.items())), 'entries': entries}
 
 
@@ -351,13 +356,6 @@ def convert_to_lenex(pool_length: int) -> dict:
                 for event in data:
                     infos = get_event_infos(event, eventid, filename)
                     heats_data = get_heats(event, eventid, pool_length)
-                    gender = infos['lenex']['event']['gender']
-                    distance = infos['lenex']['swimstyle']['distance']
-                    swimstyle = infos['lenex']['swimstyle']['stroke']
-                    round = infos['lenex']['event']['round']
-                    
-                    with open(f'heats/{distance}{swimstyle}{gender}-{infos["category"]}-{round}.json', 'w') as f:
-                        f.write(json.dumps(heats_data))
                     race = infos | {'heats': heats_data['heats']}
                     if heats_data['entries']['type'] == 'heats':
                         entries['athletes'] += heats_data['entries']['data']
@@ -478,14 +476,19 @@ def build_lenex() -> str:
     data: dict = competition_infos | convert_to_lenex(
         competition_infos['pool_length'])
     root = ET.Element("LENEX", version="3.0")
-    constructor = ET.SubElement(
-        root, "CONSTRUCTOR", name=data['constructor']['name'])
+    constructor = ET.SubElement(root, 
+        "CONSTRUCTOR", {
+            'name': data['constructor']['name'], 
+            'registration': data['constructor']['registration'],
+            'version': data['constructor']['version']
+        })
     ET.SubElement(constructor, "CONTACT", {
         'name': data['constructor']['name'],
-        'zip': data['constructor']['zip'],
-        'city': data['constructor']['city'],
-        'email': data['constructor']['email'],
-        'internet': data['constructor']['internet'],
+        'zip': data['constructor']['CONTACT']['zip'],
+        'city': data['constructor']['CONTACT']['city'],
+        'country': data['constructor']['CONTACT']['country'],
+        'email': data['constructor']['CONTACT']['email'],
+        'internet': data['constructor']['CONTACT']['internet'],
     })
     meets = ET.SubElement(root, "MEETS")
     meet = ET.SubElement(meets, "MEET", {
