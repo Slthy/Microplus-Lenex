@@ -541,7 +541,7 @@ def build_lenex() -> str:
     })
     ET.SubElement(meet, "POINTTABLE", {
         'name': 'FINA Point Scoring',
-        'version': '2004'
+        'version': '2023'
     })
     sessions = ET.SubElement(meet, "SESSIONS")
     for n in data['sessions'].keys():
