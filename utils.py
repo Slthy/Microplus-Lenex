@@ -83,6 +83,33 @@ LENEX_STROKES = {
     'Medley': 'MEDLEY'
 }
 
+JUNIOR_CATEGORIES = {
+    "CAF" : {
+        'agemin': '17',
+        'agemax': '18'
+    },
+    "CAM" : {
+        'agemin': '20',
+        'agemax': '19'
+    },
+    "JUF" : {
+        'agemin': '15',
+        'agemax': '16'
+    },
+    "JUM" : {
+        'agemin': '18',
+        'agemax': '17'
+    },
+    "RAF" : {
+        'agemin': '13',
+        'agemax': '14'
+    },
+    "RAM" : {
+        'agemin': '16',
+        'agemax': '14'
+    }
+}
+
 def swrid(lastname: str, firstname: str) -> Optional[str]: #query-search athlete through swimrakings.net, returns its swrid (swimrakings id)
     html_res = requests.get(
         f'https://www.swimrankings.net/index.php?&internalRequest=athleteFind&athlete_clubId=-1&athlete_gender=-1&athlete_lastname={lastname}&athlete_firstname={firstname}')

@@ -70,7 +70,7 @@ def get_competition_infos() -> dict:
                 'desciption': data['Export']['ExpDescr'],
                 'city': data['Event']['Place'].split(',')[0],
                 'nation': 'ITA' if data['Event']['Place'].split(',')[0] == 'Roma'
-                else input(f'insert nation (city: {data["Event"]["Place"].split(",")[0]}): '),
+                else input(f'insert nation code (city: {data["Event"]["Place"].split(",")[0]}): '),
                 'course': pool_length_code,
                 'timing': "AUTOMATIC",
                 'pool_lane_min': '0',
@@ -98,8 +98,8 @@ def get_entry_time(category: str, race_code: str, event_type: str, PlaCod: str) 
                 return utils.format_time(entry['MemIscr'])
 
 
-def get_relay_splits(entry: dict, pool_length: int, gender: str):
-    """Returns the splits of a given relay
+def get_relay_splits_and_athletes(entry: dict, pool_length: int, gender: str):
+    """Returns the splits of a given relay and the general infos of the relay's atheletes
 
     Args:
         entry (dict): relay informations
@@ -157,7 +157,7 @@ def get_relay_splits(entry: dict, pool_length: int, gender: str):
 
 
 def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
-    """returns LENEX `heats` component all the athlete entries for a given event
+    """returns LENEX `heats` component for a given event
 
     Args:
         event (dict): `event` dictionary
@@ -177,22 +177,37 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                                 -`heats`: single event
     """
     with open(f'scraped_data/results/NU{event["c0"]}{utils.RACE_CODES[event["d_en"]]}CLAS{event["c2"][::2]} 001.JSON', 'r') as f:
+        heats = {}
         heat_entries: dict = json.loads(f.read())
         data: list = heat_entries['data']
+        agegroup: dict[str, list] = {
+            'id': f'10{eventid}',
+            'age_costraints': {
+                'agemax': '-1',
+                'agemin': '-1'
+            },
+            'results': []
+        }
+        
+        category = heat_entries['Category']['Cod']
+        if category in utils.JUNIOR_CATEGORIES.keys():
+            agegroup['age_costraints']['agemax'] = utils.JUNIOR_CATEGORIES[category]['agemax']
+            agegroup['age_costraints']['agemin'] = utils.JUNIOR_CATEGORIES[category]['agemin']
+        
         entries = {
             'type': 'relays' if 'Players' in data[0].keys() else 'heats',
-            'data': []
+            'data': [[], []] #indexes: 0 for single entries, 1 for relays
         }
-        heats = {}
-        heat_n = 1
-        for entry in data:
-            # 'heatid' is composed of the heat's number at the head and eventid at the end
-            heatid = f'{heat_n}000{eventid}'
-            if 'Players' in entry.keys():  # relay event
-                splits = get_relay_splits(
+
+        result_n = 1
+        if 'Players' in data[0].keys():  # relay event --HANDLE people that only swim in relays--
+            for entry in data:
+                heatid = f'{entry["b"]}000{eventid}'
+                splits = get_relay_splits_and_athletes(
                     entry, pool_length, heat_entries['Category']['Cod'][-1])
-                athletes = []
-                relay = ({
+                resultid = f'20{eventid}{result_n}'
+                entries['data'][0].append([{'athlete_infos': a} for a in splits['player_positions']])
+                entries['data'][1].append({
                     'relay_infos': {
                         'gender': event["c0"][-1] if event["c0"][-1] in ['M', 'F'] else 'X',
                         'team': {
@@ -204,29 +219,28 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                     },
                     'result': {
                         'eventid': str(eventid),
-                        'place': entry['PlaCls'],
+                        'agegroupid': agegroup['id'],
+                        'resultid': resultid,
+                        'place': entry['PlaCls'],#TODO! place
                         'lane': entry['PlaLane'],
-                        'heat': str(heat_n),
+                        'heat': str(entry["b"]),
                         'heatid': str(heatid),
                         'swimtime': utils.format_time(entry['MemPrest']),
                         'reactiontime': '',
                         'splits': splits
                     }
                 })
-                '''# append entries in athlete entry-list
-                for player in splits['player_positions']:
-                    athletes.append({
-                        'athlete_infos': player,
-                        'entry': {
-                            'eventid': str(eventid),
-                            'entrytime': 'NT'
-                        }
-                    })
-                entries['data'].append({
-                    'relay': relay,
-                    'athletes': athletes
-                })'''
-            else:  # single event
+                
+                if entry["b"] not in heats.keys():
+                    heats[entry["b"]] = {
+                        'daytime': heat_entries['Heat']['UffTime'],
+                        'heatid': heatid,
+                        'number': entry["b"]
+                    }
+        else:  # single event
+            for entry in data:
+                heatid = f'{entry["b"]}000{eventid}'
+                resultid = f'20{eventid}{result_n}'
                 entrytime = get_entry_time(
                     event["c0"], event["d_en"], event["c2"][::2], entry['PlaCod'])
                 splits = []
@@ -238,8 +252,7 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                         'distance': str(pool_length*index + pool_length),
                         'swimtime': utils.format_time(time['V'])
                     })
-
-                entries['data'].append({
+                entries['data'][0].append({
                     'athlete_infos': {
                         'athleteid': entry['PlaCod'],
                         'lastname': entry['PlaSurname'],
@@ -257,30 +270,42 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                     'entry': {
                         'eventid': str(eventid),
                         'entrytime': entrytime,
-                        'heat': str(heat_n),
+                        'heat': str(entry["b"]),
                         'lane': entry['PlaLane'],
                         'meetinfo': heat_entries['Heat']['UffDate']
                     },
                     'result': {
                         'eventid': str(eventid),
+                        'agegroupid': agegroup['id'],
+                        'resultid': resultid,
                         'place': entry['PlaCls'],
                         'lane': entry['PlaLane'],
-                        'heat': str(heat_n),
-                        'heatid': str(heatid),
+                        'heat': str(entry["b"]),
+                        'heatid': heatid,
                         'swimtime': utils.format_time(entry['MemPrest']),
                         'reactiontime': '',
                         'splits': splits
                     }
                 })
-            if str(heat_n) not in heats.keys():
-                heats[str(heat_n)] = {
-                    'daytime': heat_entries['Heat']['UffTime'],
-                    'heatid': heatid,
-                    'number': str(heat_n)
-                }
-                heat_n = heat_n + 1
                 
-    return {'heats': dict(sorted(heats.items())), 'entries': entries}
+                if entry['b'] not in heats.keys():
+                    heats[str(entry["b"])] = {
+                        'daytime': heat_entries['Heat']['UffTime'],
+                        'heatid': heatid,
+                        'number': str(entry["b"])
+                    }
+                    
+        if entry['PlaCls'].isdigit():
+                    place = str(result_n)
+                    result_n = result_n + 1
+        else:
+            place = entry['PlaCls']
+        agegroup['results'].append({
+            'order': place,
+            'place': place,
+            'resultid': resultid
+        })
+    return {'heats': dict(sorted(heats.items())), 'agegroup': agegroup, 'entries': entries}
 
 
 def get_event_infos(event: dict, eventid: int, filename: str) -> dict:
@@ -354,13 +379,15 @@ def convert_to_lenex(pool_length: int) -> dict:
             with open(file, 'r') as f:
                 data: list = json.loads(f.read())['e']
                 for event in data:
-                    infos = get_event_infos(event, eventid, filename)
                     heats_data = get_heats(event, eventid, pool_length)
+                    infos = get_event_infos(event, eventid, filename) | {'agegroup': heats_data['agegroup']}
                     race = infos | {'heats': heats_data['heats']}
                     if heats_data['entries']['type'] == 'heats':
-                        entries['athletes'] += heats_data['entries']['data']
+                        entries['athletes'] += heats_data['entries']['data'][0]
                     else:
-                        entries['relays'] += heats_data['entries']['data']
+                        for athlete in heats_data['entries']['data'][0]:
+                            entries['athletes'] += athlete
+                        entries['relays'] += heats_data['entries']['data'][1]
                     # if the event is a preliminary or heat, put race_code, eventid and -current event's- category into the prelims list
                     if race['lenex']['event']['preveventid'] == '-1':
                         prelims_eventid.append({
@@ -369,14 +396,12 @@ def convert_to_lenex(pool_length: int) -> dict:
                             'category': event['c0']
                         })
                     eventid = eventid + 1
+                    # if event has a prev_event, the parent event in the prelims list. This script is designed for 'normal' event, no semis. # TODO: #8 handle semis (and quarters)
+                    if race['lenex']['event']['preveventid'] == '00':
+                        for prelim in prelims_eventid:
+                            if prelim['race_code'] == race['race_code'] and prelim['category'] == race['category']:
+                                race['lenex']['event']['preveventid'] = prelim['eventid']
                     events.append(race)
-
-    for race in events:
-        # if event has a prev_event, the parent event in the prelims list. This script is designed for 'normal' event, no semis. # TODO: #8 handle semis (and quarters)
-        if race['lenex']['event']['preveventid'] == '00':
-            for prelim in prelims_eventid:
-                if prelim['race_code'] == race['race_code'] and prelim['category'] == race['category']:
-                    race['lenex']['event']['preveventid'] = prelim['eventid']
 
     sessions = {}
     for event in events:  # append event to the corresponding key, which is the session's number
@@ -403,65 +428,60 @@ def convert_to_lenex(pool_length: int) -> dict:
         infos = entry['athlete_infos']
         club_name = infos['team']['name']
         athleteid = infos['athleteid']
-
-        if club_name not in clubs.keys():  # new club
+        #TODO: refactoring
+        if club_name not in clubs.keys():  # new club 
             club_infos = infos['team']
             del infos['team']
-
             clubs[club_name] = {
-                'infos': club_infos,
-                'athletes': {
-                    athleteid: {
-                        'athlete_infos': infos,
-                        'entries': [entry['entry']],
-                        'results': [entry['result']]
-                    }
-                },
-                'relays': []
-            }
+                    'infos': club_infos,
+                    'athletes': {
+                        athleteid: {'athlete_infos': infos}
+                    },
+                    'relays': []
+                }
+            if len(entry.keys()) > 1: #athlete has entries and results
+                clubs[club_name]['athletes'][athleteid]['entries'] = [entry['entry']]
+                clubs[club_name]['athletes'][athleteid]['results'] = [entry['result']]
+
         # club already in 'clubs' dict, new athlete to add
         elif athleteid not in clubs[club_name]['athletes'].keys():
             del infos['team']
-
-            clubs[club_name]['athletes'][athleteid] = {
-                'athlete_infos': infos,
-                'entries': [entry['entry']],
-                'results': [entry['result']]
-            }
+            clubs[club_name]['athletes'][athleteid] = {'athlete_infos': infos}
+            if len(entry.keys()) > 1: #athlete has entries and results
+                clubs[club_name]['athletes'][athleteid]['entries'] = [entry['entry']]
+                clubs[club_name]['athletes'][athleteid]['results'] = [entry['result']]
         else:  # both club and athlete are in the c/a dicts, append new data to 'entries' and 'results' field
-            clubs[club_name]['athletes'][athleteid]['entries'].append(
-                entry['entry'])
-            clubs[club_name]['athletes'][athleteid]['results'].append(
-                entry['result'])
+            
+            try:
+                if len(entry.keys()) > 1: #athlete has entries and result
+                    clubs[club_name]['athletes'][athleteid]['entries'].append(
+                        entry['entry'])
+                    clubs[club_name]['athletes'][athleteid]['results'].append(
+                        entry['result'])
+            except KeyError: #the first at
+                clubs[club_name]['athletes'][athleteid]['entries'] = [entry['entry']]
+                clubs[club_name]['athletes'][athleteid]['results'] = [entry['result']]
 
     for entry in entries['relays']:
-        club_name = entry['relay']['relay_infos']['team']['name']
+        club_name = entry['relay_infos']['team']['name']
 
         if club_name not in clubs.keys():  # new club
-
             clubs[club_name] = {
-                'infos': entry['relay']['relay_infos']['team'],
+                'infos': entry['relay_infos']['team'],
                 'athletes': {},
                 'relays': [entry]
             }
-            for athlete in entry:
+            for athlete in entry['result']['splits']['player_positions']:
                 clubs[club_name]['athletes'][athleteid] = {
-                    'athlete_infos': athlete['athlete_infos'],
-                    'entries': [athlete['entry']]
+                    'athlete_infos': athlete
                 }
-        elif athleteid not in clubs[club_name]['athletes'].keys():
-
-            for athlete in entry['athletes']:
-                clubs[club_name]['athletes'][athleteid] = {
-                    'athlete_infos': athlete['athlete_infos'],
-                    'entries': [athlete['entry']]
-                }
+        else:
             clubs[club_name]['relays'].append(entry)
 
-        else:  # both club and athlete are in the respective dicts, append new data to 'entries' and 'results' field
+        '''else:  # both club and athlete are in the respective dicts, append new data to 'entries' and 'results' field
             clubs[club_name]['athletes'][athleteid]['entries'].append(
                 athlete['entry'])
-            clubs[club_name]['relays'].append(entry)
+            clubs[club_name]['relays'].append(entry)'''
 
     return {'sessions': sessions, 'clubs': clubs}
 
@@ -520,7 +540,6 @@ def build_lenex() -> str:
         })
         events = ET.SubElement(session, "EVENTS")
         for e in session_data['events']:
-
             event = ET.SubElement(events, "EVENT", {
                 'eventid': e['lenex']['event']['eventid'],
                 'number': e['lenex']['event']['number'],
@@ -534,6 +553,19 @@ def build_lenex() -> str:
                 'relaycount': e['lenex']['swimstyle']['relaycount'],
                 'stroke': e['lenex']['swimstyle']['stroke']
             })
+            agegroups = ET.SubElement(event, "AGEGROUPS")
+            agegroup = ET.SubElement(agegroups, "AGEGROUP", {
+                'agegroupid': e['agegroup']['id'],
+                'agemax': e['agegroup']['age_costraints']['agemax'],
+                'agemin': e['agegroup']['age_costraints']['agemin']
+            })
+            rankings = ET.SubElement(agegroup, "RANKINGS")
+            for r in e['agegroup']['results']:
+                ET.SubElement(rankings, "RANKING", {
+                    'order': r['order'],
+                    'place': r['place'],
+                    'resultid': r['resultid']
+                })
             heats = ET.SubElement(event, "HEATS")
             for h in e['heats'].keys():
 
@@ -548,7 +580,6 @@ def build_lenex() -> str:
         club_infos = data['clubs'][c]['infos']
         club = ET.SubElement(clubs, "CLUB", {
             'name': club_infos['name'],
-            'shortname': club_infos['shortname'],
             'code': club_infos['code'],
             'nation': club_infos['nation'],
             'type': club_infos['type']
@@ -564,27 +595,29 @@ def build_lenex() -> str:
                 'gender': athlete_infos['gender'],
                 'birthdate': athlete_infos['birthdate']
             })
-            entries = ET.SubElement(athlete, "ENTRIES")
-            for e in club_athletes[a]['entries']:
-                if 'meetinfo' in e.keys():  # single event race-entry
-                    entry = ET.SubElement(entries, "ENTRY", {
-                        'entrytime': e['entrytime'],
-                        'eventid': e['eventid'],
-                        'heat': e['heat'],
-                        'lane': e['lane']
-                    })
-                    ET.SubElement(entry, "MEETINFO", date=e['meetinfo'])
-                else:  # relay event race-entry
-                    entry = ET.SubElement(entries, "ENTRY", {
-                        'entrytime': e['entrytime'],
-                        'eventid': e['eventid']
-                    })
+            if 'entries' in club_athletes[a].keys():
+                entries = ET.SubElement(athlete, "ENTRIES")
+                for e in club_athletes[a]['entries']:
+                    if 'meetinfo' in e.keys():  # single event race-entry
+                        entry = ET.SubElement(entries, "ENTRY", {
+                            'entrytime': e['entrytime'],
+                            'eventid': e['eventid'],
+                            'heat': e['heat'],
+                            'lane': e['lane']
+                        })
+                        ET.SubElement(entry, "MEETINFO", date=e['meetinfo'])
+                    else:  # relay event race-entry
+                        entry = ET.SubElement(entries, "ENTRY", {
+                            'entrytime': e['entrytime'],
+                            'eventid': e['eventid']
+                        })
             # an athlete may not have reced in a signle events, but only in relays, so no results.
             if 'results' in club_athletes[a].keys():
                 results = ET.SubElement(athlete, "RESULTS")
                 for r in club_athletes[a]['results']:
                     result = ET.SubElement(results, "RESULT", {
                         'eventid': r['eventid'],
+                        'resultid': r['resultid'],
                         'place': r['place'],
                         'lane': r['lane'],
                         'heat': r['heat'],
@@ -601,35 +634,35 @@ def build_lenex() -> str:
         if len(data['clubs'][c]['relays']) > 0:
             relays = ET.SubElement(club, "RELAYS")
             for r in data['clubs'][c]['relays']:
-                relay_data = r['relay']
                 relay = ET.SubElement(relays, "RELAY", {
                     'number': '1',  # only one relay per team is allowed in supported championships
                     'agemax': '-1',  # TODO: #10 handle categories in junior events
                     'agemin': '-1',  # '-1' value is default value
                     'agetotalmax': '-1',
-                    'gender': relay_data['relay_infos']['gender'],
-                    'name': relay_data['relay_infos']['team']['name']
+                    'gender': r['relay_infos']['gender'],
+                    'name': r['relay_infos']['team']['name']
                 })
                 results = ET.SubElement(relay, "RESULTS")
 
                 result = ET.SubElement(results, "RESULT", {
-                    'eventid': relay_data['result']['eventid'],
-                    'place': relay_data['result']['place'],
-                    'lane': relay_data['result']['lane'],
-                    'heat': relay_data['result']['heat'],
-                    'heatid': relay_data['result']['heatid'],
-                    'swimtime': relay_data['result']['swimtime'],
-                    'reactiontime': relay_data['result']['reactiontime']
+                    'eventid': r['result']['eventid'],
+                    'resultid': r['result']['resultid'],
+                    'place': r['result']['place'],
+                    'lane': r['result']['lane'],
+                    'heat': r['result']['heat'],
+                    'heatid': r['result']['heatid'],
+                    'swimtime': r['result']['swimtime'],
+                    'reactiontime': r['result']['reactiontime']
                 })
                 splits = ET.SubElement(result, "SPLITS")
-                for s in relay_data['result']['splits']['data']:
+                for s in r['result']['splits']['data']:
                     ET.SubElement(splits, "SPLIT", {
                         'distance': s['distance'],
                         'swimtime': s['swimtime']
                     })
 
                 player_positions = ET.SubElement(result, "RELAYPOSITIONS")
-                for p in relay_data['result']['splits']['player_positions']:
+                for p in r['result']['splits']['player_positions']:
                     ET.SubElement(player_positions, "RELAYPOSITION", {
                         'number': p['number'],
                         'athleteid': p['athleteid'],
