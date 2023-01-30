@@ -579,8 +579,8 @@ def build_lenex() -> str:
     for c in data['clubs'].keys():
         club_infos = data['clubs'][c]['infos']
         club = ET.SubElement(clubs, "CLUB", {
-            'name': club_infos['name'],
-            'code': club_infos['code'],
+            'name': requests.utils.unquote(club_infos['name']),
+            'code': requests.utils.unquote(club_infos['code']),
             'nation': club_infos['nation'],
             'type': club_infos['type']
         })
@@ -590,10 +590,10 @@ def build_lenex() -> str:
             athlete_infos = club_athletes[a]['athlete_infos']
             athlete = ET.SubElement(athletes, "ATHLETE", {
                 'athleteid': athlete_infos['athleteid'],
-                'lastname': athlete_infos['lastname'],
-                'firstname': athlete_infos['firstname'],
+                'lastname': requests.utils.unquote(athlete_infos['lastname']),
+                'firstname': requests.utils.unquote(athlete_infos['firstname']),
                 'gender': athlete_infos['gender'],
-                'birthdate': athlete_infos['birthdate']
+                'birthdate': athlete_infos['birthdate'] ###
             })
             if 'entries' in club_athletes[a].keys():
                 entries = ET.SubElement(athlete, "ENTRIES")
