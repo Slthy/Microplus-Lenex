@@ -71,7 +71,7 @@ def get_competition_infos() -> dict:
                 'name': data['Export']['ExpName'],
                 'desciption': data['Export']['ExpDescr'],
                 'city': data['Event']['Place'].split(',')[0],
-                'nation': 'ITA' if data['Event']['Place'].split(',')[0] == 'Roma'
+                'nation': 'ITA' if data['Event']['Place'].split(',')[0] in ['Roma', 'Riccione', 'Ostia']
                 else input(f'insert nation code (city: {data["Event"]["Place"].split(",")[0]}): '),
                 'course': pool_length_code,
                 'timing': "AUTOMATIC",
@@ -208,8 +208,11 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
         result_n = 1
         # relay event --HANDLE people that only swim in relays--
         if 'Players' in data[0].keys():
+            times = []
+            DNFs = []
             for entry in data:
                 heatid = f'{entry["b"]}000{eventid}'
+                swimtime = utils.format_time(entry['MemPrest'])
                 splits = get_relay_splits_and_athletes(
                     entry, pool_length, heat_entries['Category']['Cod'][-1])
                 resultid = f'20{eventid}{result_n}'
@@ -233,7 +236,7 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                         'lane': entry['PlaLane'],
                         'heat': str(entry["b"]),
                         'heatid': str(heatid),
-                        'swimtime': utils.format_time(entry['MemPrest']),
+                        'swimtime': swimtime,
                         'reactiontime': '',
                         'splits': splits
                     }
@@ -534,11 +537,6 @@ def convert_to_lenex(pool_length: int) -> dict:
         else:
             clubs[club_name]['relays'].append(entry)
 
-        '''else:  # both club and athlete are in the respective dicts, append new data to 'entries' and 'results' field
-            clubs[club_name]['athletes'][athleteid]['entries'].append(
-                athlete['entry'])
-            clubs[club_name]['relays'].append(entry)'''
-
     return {'sessions': sessions, 'clubs': clubs}
 
 
@@ -546,7 +544,10 @@ def build_lenex() -> str:
     """Main function, elaborates and compile data into a `XML` string
 
     Returns:
-        str: `XML` string containing the LENEX file
+        dict: compiled data
+            Keys:
+                -`xml`: a string containing the xml file to be written
+                -`event_name`: event's name and xml's filename
     """
     competition_infos = get_competition_infos()
     data: dict = competition_infos | convert_to_lenex(
@@ -729,17 +730,22 @@ def build_lenex() -> str:
     dom = xml.dom.minidom.parseString(ET.tostring(root))
     xml_string = dom.toprettyxml()
     part1, part2 = xml_string.split('?>')
+    output_xml = part1 + 'encoding=\"{}\" standalone="no"?>\n'.format('utf-8') + part2
+    event_name = data['event']['name']
 
-    return part1 + 'encoding=\"{}\" standalone="no"?>\n'.format('utf-8') + part2
+    return {
+        'xml': output_xml,
+        'event_name': event_name.replace(' ', '_')
+    }
 
 
-def write_file(xml_data: str):
-    with open("processed_data/lenex.lef", 'w') as xfile:
-        xfile.write(xml_data)
+def write_file(data: dict):
+    with open(f"processed_data/{data['event_name']}.lef", 'w') as xfile:
+        xfile.write(data['xml'])
 
 
-def debug(xml_data: str):
-    with open("processed_data/lenex_refactor.lef", 'w') as xfile:
-        xfile.write(xml_data)
+def debug(data: dict):
+    with open(f"processed_data/lenex_refactor.lef", 'w') as xfile:
+        xfile.write(data['xml'])
     print(
         f'check: {filecmp.cmp("processed_data/lenex_refactor.lef", "processed_data/lenex.lef", shallow=False)}')
