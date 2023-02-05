@@ -200,6 +200,7 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
         }
 
         result_n = 1
+        heat_max = int(data[0]['b'])
         # relay event --HANDLE people that only swim in relays--
         if 'Players' in data[0].keys():
             for entry in data:
@@ -239,7 +240,29 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                         'heatid': heatid,
                         'number': entry["b"]
                     }
+
+                if entry['PlaCls'].isdigit():
+                    times.append({'resultid': resultid, 'swimtime_float': utils.time_to_timedelta(swimtime).total_seconds()})
+                else:
+                    DNFs.append({'resultid': resultid, 'swimtime': entry['PlaCls']})
+                result_n = result_n + 1
+            
+            sorted_rankings = sorted(times, key = lambda x: x['swimtime_float'])
+            for index, result in enumerate(sorted_rankings):
+                agegroup['results'].append({
+                        'order': str(index + 1),
+                        'place': str(index + 1),
+                        'resultid': result['resultid']
+                    })
+            for index, dnf in enumerate(DNFs):
+                agegroup['results'].append({
+                        'order': str((index + 1) + len(sorted_rankings)),
+                        'place': str((index + 1) + len(sorted_rankings)),
+                        'resultid': dnf['resultid']
+                    })
         else:  # single event
+            times = []
+            DNFs = []
             for entry in data:
                 heatid = f'{entry["b"]}000{eventid}'
                 resultid = f'20{eventid}{result_n}'
@@ -305,16 +328,27 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                         'number': str(entry["b"])
                     }
 
-        if entry['PlaCls'].isdigit():
-            place = str(result_n)
-            result_n = result_n + 1
-        else:
-            place = entry['PlaCls']
-        agegroup['results'].append({
-            'order': place,
-            'place': place,
-            'resultid': resultid
-        })
+                if entry['PlaCls'].isdigit():
+                    times.append({'resultid': resultid, 'swimtime_float': utils.time_to_timedelta(swimtime).total_seconds()})
+                else:
+                    DNFs.append({'resultid': resultid, 'swimtime': entry['PlaCls']})
+                result_n = result_n + 1
+            
+            sorted_rankings = sorted(times, key = lambda x: x['swimtime_float'])
+            for index, result in enumerate(sorted_rankings):
+                agegroup['results'].append({
+                        'order': str(index + 1),
+                        'place': str(index + 1),
+                        'resultid': result['resultid']
+                    })
+            for index, dnf in enumerate(DNFs):
+                agegroup['results'].append({
+                        'order': str((index + 1) + len(sorted_rankings)),
+                        'place': str((index + 1) + len(sorted_rankings)),
+                        'resultid': dnf['resultid']
+                    })
+
+
     return {'heats': dict(sorted(heats.items())), 'agegroup': agegroup, 'entries': entries}
 
 

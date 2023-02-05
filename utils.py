@@ -187,8 +187,8 @@ FINA_2023_BASETIMES = {
 time_to_timedelta = lambda t : datetime.strptime(t, "%H:%M:%S.%f") - datetime(1900,1,1)
 def get_fina_points(time: int, race_length: str, discipline: str, gender: str, course: str):
     basetime = FINA_2023_BASETIMES[f'{race_length}_{discipline}_{gender}_{course}']
-    time_int = time_to_timedelta(time).total_seconds()
-    return round(1000*(basetime/time_int)**3)
+    time_float = time_to_timedelta(time).total_seconds()
+    return round(1000*(basetime/time_float)**3)
 
     
 def swrid(lastname: str, firstname: str) -> Optional[str]: #query-search athlete through swimrakings.net, returns its swrid (swimrakings id)
