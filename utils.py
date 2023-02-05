@@ -85,28 +85,28 @@ LENEX_STROKES = {
 
 JUNIOR_CATEGORIES = {
     "CAF" : {
-        'agemin': '17',
-        'agemax': '18'
+        'agemax': '17',
+        'agemin': '18'
     },
     "CAM" : {
-        'agemin': '20',
-        'agemax': '19'
+        'agemax': '20',
+        'agemin': '19'
     },
     "JUF" : {
-        'agemin': '15',
-        'agemax': '16'
+        'agemax': '15',
+        'agemin': '16'
     },
     "JUM" : {
-        'agemin': '18',
-        'agemax': '17'
+        'agemax': '18',
+        'agemin': '17'
     },
     "RAF" : {
-        'agemin': '13',
-        'agemax': '14'
+        'agemax': '13',
+        'agemin': '14'
     },
     "RAM" : {
-        'agemin': '16',
-        'agemax': '14'
+        'agemax': '16',
+        'agemin': '14'
     }
 }
 

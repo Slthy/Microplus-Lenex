@@ -8,6 +8,8 @@ import inquirer
 import xml.etree.cElementTree as ET
 import xml.dom.minidom
 import filecmp
+import re
+from datetime import date
 
 
 def scrape_data(url: str) -> None:
@@ -189,10 +191,14 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
             'results': []
         }
 
-        category = heat_entries['Category']['Cod']
-        if category in utils.JUNIOR_CATEGORIES.keys():
-            agegroup['age_costraints']['agemax'] = utils.JUNIOR_CATEGORIES[category]['agemax']
-            agegroup['age_costraints']['agemin'] = utils.JUNIOR_CATEGORIES[category]['agemin']
+        cat = heat_entries['Category']['Cod']
+        if cat in utils.JUNIOR_CATEGORIES.keys():
+            agegroup['age_costraints']['agemax'] = utils.JUNIOR_CATEGORIES[cat]['agemax']
+            agegroup['age_costraints']['agemin'] = utils.JUNIOR_CATEGORIES[cat]['agemin']
+        elif re.match(r'^\d\d[FM]$', cat): #regex ,  0, -1
+            yob = int(f'20{cat[0]}{cat[1]}')
+            agegroup['age_costraints']['agemax'] = str(date.today().year - yob)
+            agegroup['age_costraints']['agemin'] = str(date.today().year - yob - 1)
 
         entries = {
             'type': 'relays' if 'Players' in data[0].keys() else 'heats',
@@ -200,7 +206,6 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
         }
 
         result_n = 1
-        heat_max = int(data[0]['b'])
         # relay event --HANDLE people that only swim in relays--
         if 'Players' in data[0].keys():
             for entry in data:
