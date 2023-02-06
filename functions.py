@@ -360,7 +360,7 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
     return {'heats': dict(sorted(heats.items())), 'agegroup': agegroup, 'entries': entries}
 
 
-def get_event_infos(event: dict, eventid: int, filename: str) -> dict:
+def get_event_infos(event: dict, eventid: int, filename: str, number: int) -> dict:
     """Return competition's generic infos
 
     Args:
@@ -381,7 +381,7 @@ def get_event_infos(event: dict, eventid: int, filename: str) -> dict:
         'lenex': {
             'event': {
                 'eventid': str(eventid),
-                'number': utils.RACE_CODES[event["d_en"]],
+                'number': str(number),
                 # '-1' means that the event is a preliminary or heat, so there isn't "parent" event for the current event.
                 'preveventid': '-1' if (event['c2'] == '001' or event['c2'] == '007') else '00',
                 'gender': event['c0'][-1::],
@@ -424,15 +424,16 @@ def convert_to_lenex(pool_length: int) -> dict:
 
     # create directory to store the processed data
     pathlib.Path('processed_data').mkdir(parents=True, exist_ok=True)
-    for filename in os.listdir('scraped_data/schedules/by_date'):
+    for day, filename in enumerate(os.listdir('scraped_data/schedules/by_date')):
         file = os.path.join('scraped_data/schedules/by_date', filename)
 
         if os.path.isfile(file):
             with open(file, 'r') as f:
                 data: list = json.loads(f.read())['e']
-                for event in data:
+                for index, event in enumerate(data):
+                    #event_number = day*10 + index + 1
                     heats_data = get_heats(event, eventid, pool_length)
-                    infos = get_event_infos(event, eventid, filename) | {
+                    infos = get_event_infos(event, eventid, filename, eventid) | { #event_number = event_id 
                         'agegroup': heats_data['agegroup']}
                     race = infos | {'heats': heats_data['heats']}
                     if heats_data['entries']['type'] == 'heats':
@@ -448,6 +449,7 @@ def convert_to_lenex(pool_length: int) -> dict:
                             'eventid': race['lenex']['event']['eventid'],
                             'category': event['c0']
                         })
+
                     eventid = eventid + 1
                     # if event has a prev_event, the parent event in the prelims list. This script is designed for 'normal' event, no semis. # TODO: #8 handle semis (and quarters)
                     if race['lenex']['event']['preveventid'] == '00':
@@ -594,8 +596,9 @@ def build_lenex() -> str:
         events = ET.SubElement(session, "EVENTS")
         for e in session_data['events']:
             event = ET.SubElement(events, "EVENT", {
-                'eventid': e['lenex']['event']['eventid'],
                 'number': e['lenex']['event']['number'],
+                'eventid': e['lenex']['event']['eventid'],
+                
                 'preveventid': e['lenex']['event']['preveventid'],
                 'gender': e['lenex']['event']['gender'],
                 'round': e['lenex']['event']['round'],
