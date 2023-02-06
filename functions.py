@@ -75,8 +75,8 @@ def get_competition_infos() -> dict:
                 else input(f'insert nation code (city: {data["Event"]["Place"].split(",")[0]}): '),
                 'course': pool_length_code,
                 'timing': "AUTOMATIC",
-                'pool_lane_min': '0',
-                'pool_lane_max': '10'
+                'lanemin': '0',
+                'lanemax': '9'
             },
             'pool_length': 50 if pool_length_code == 'LCM' else 25
         }
@@ -576,8 +576,8 @@ def build_lenex() -> str:
         'timing': data['event']['timing']
     })
     ET.SubElement(meet, "POOL", {
-        'pool_lane_min': data['event']['pool_lane_min'],
-        'pool_lane_max': data['event']['pool_lane_max']
+        'lanemin': data['event']['lanemin'],
+        'lanemax': data['event']['lanemax']
     })
     ET.SubElement(meet, "POINTTABLE", {
         'name': 'FINA Point Scoring',
@@ -590,10 +590,6 @@ def build_lenex() -> str:
             'number': session_data['infos']['number'],
             'date': session_data['infos']['date'],
             'daytime': session_data['infos']['daytime']
-        })
-        ET.SubElement(session, "POOL", {
-            'pool_lane_min': data['event']['pool_lane_min'],
-            'pool_lane_max': data['event']['pool_lane_max']
         })
         events = ET.SubElement(session, "EVENTS")
         for e in session_data['events']:
