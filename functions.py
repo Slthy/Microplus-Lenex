@@ -658,7 +658,7 @@ def build_lenex() -> str:
                             'heat': e['heat'],
                             'lane': e['lane']
                         })
-                        ET.SubElement(entry, "MEETINFO", date=e['meetinfo'])
+                        ET.SubElement(entry, "MEETINFO", date=datetime.datetime.strptime(e['meetinfo'], "%d/%m/%Y").strftime("%Y-%m-%d"))
                     else:  # relay event race-entry
                         entry = ET.SubElement(entries, "ENTRY", {
                             'entrytime': e['entrytime'],
