@@ -272,8 +272,11 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
             times = []
             DNFs = []
             for entry in data:
+                
                 heatid = f'{entry["b"]}000{eventid}'
-                resultid = f'20{eventid}{result_n}'
+                resultid = f'20{eventid}000{result_n}'
+                if resultid == "20141":
+                    print(result_n)
                 entrytime = get_entry_time(
                     event["c0"], event["d_en"], event["c2"][::2], entry['PlaCod'])
                 splits = []
@@ -444,6 +447,7 @@ def convert_to_lenex(pool_length: int) -> dict:
                         entries['relays'] += heats_data['entries']['data'][1]
                     # if the event is a preliminary or heat, put race_code, eventid and -current event's- category into the prelims list
                     if race['lenex']['event']['preveventid'] == '-1':
+
                         prelims_eventid.append({
                             'race_code': utils.RACE_CODES[event["d_en"]],
                             'eventid': race['lenex']['event']['eventid'],
@@ -454,8 +458,15 @@ def convert_to_lenex(pool_length: int) -> dict:
                     # if event has a prev_event, the parent event in the prelims list. This script is designed for 'normal' event, no semis. # TODO: #8 handle semis (and quarters)
                     if race['lenex']['event']['preveventid'] == '00':
                         for prelim in prelims_eventid:
-                            if prelim['race_code'] == race['race_code'] and prelim['category'] == race['category']:
-                                race['lenex']['event']['preveventid'] = prelim['eventid']
+                            #print(prelim['category'], race['race_code'])
+                            if event['c2'] == '006' :
+                                if race['race_code'] == prelim['race_code'] and race['category'] == prelim['category']:
+                                    race['lenex']['event']['preveventid'] = prelim['eventid']
+                            else:
+                                if race['race_code'] == prelim['race_code'] and race['category'] == prelim['category']:
+                                    race['lenex']['event']['preveventid'] = prelim['eventid']
+
+                        
                     events.append(race)
 
     sessions = {}
