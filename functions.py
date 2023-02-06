@@ -633,7 +633,7 @@ def build_lenex() -> str:
         club_infos = data['clubs'][c]['infos']
         club = ET.SubElement(clubs, "CLUB", {
             'name': requests.utils.unquote(club_infos['name']),
-            'code': requests.utils.unquote(club_infos['code']),
+            'code': utils.get_team_code(club_infos['name']),
             'nation': club_infos['nation'],
             'type': club_infos['type']
         })

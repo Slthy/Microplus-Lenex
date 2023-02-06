@@ -4,6 +4,8 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs
 from typing import Optional
 from datetime import datetime
+import hashlib
+import base64
 
 
 RACE_CODES = {
@@ -219,3 +221,16 @@ def add_times(t1, t2, time_zero) -> str:
     if len(result) == 8: #no decimals
         result = datetime.strptime(result, "%H:%M:%S").strftime("%H:%M:%S.%f")
     return result[:-4]
+
+def get_team_code(team: str) -> str:
+    
+    d = hashlib.md5(team.encode()).digest()  # 16 bytes
+
+    # xor of bytes to get 3 hash bytes
+    h = bytes([
+        d[0] ^ d[1] ^ d[2] ^ d[3] ^ d[14] ^ d[15], 
+        d[4] ^ d[5] ^ d[6] ^ d[7] ^ d[13], 
+        d[8] ^ d[9] ^ d[10] ^ d[11] ^ d[12]],
+    )  
+    
+    return base64.urlsafe_b64encode(h).decode('utf-8')  
