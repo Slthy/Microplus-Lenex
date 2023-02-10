@@ -21,23 +21,22 @@ def scrape_data(url: str) -> None:
         None, files are stored automatically in the right folders, execution halts if code fails.
     """
 
-    url = url.replace('/NU', '/export/NU').replace('_web.php', '')
-    counter_generale = requests.get(
+    url: str = url.replace('/NU', '/export/NU').replace('_web.php', '')
+    counter_generale: str = requests.get(
         f'{url}/NU/CounterGenerale.json?').text[:-2]
-    contatori = requests.get(
+    contatori: str = requests.get(
         f'{url}/NU/Contatori.json?x={counter_generale}').json()['contatori']
 
     for obj in contatori:
         # download json
-        scraped_data = requests.get(
+        scraped_data: str = requests.get(
             f'{url}/NU/{obj["nomefile"]}?x={obj["counter"]}').json()
 
         # assigns a category to the downloaded json. This category will also be part of its filepath
-        file_type = utils.FILE_TYPES.get(obj['cod'], "other")
+        file_type: str = utils.FILE_TYPES.get(obj['cod'], "other")
 
         # create directory for a new type of file
-        pathlib.Path(
-            f'scraped_data/{file_type}').mkdir(parents=True, exist_ok=True)
+        pathlib.Path(f'scraped_data/{file_type}').mkdir(parents=True, exist_ok=True)
 
         # write file into category path
         with open(f'scraped_data/{file_type}/{scraped_data["jsonfilename"]}', 'w') as f:
@@ -51,8 +50,8 @@ def get_competition_infos() -> dict:
         dict: competition's infos
     """
     with open(f"scraped_data/results/{os.listdir('scraped_data/results')[0]}", 'r') as f:
-        data = json.loads(f.read())
-        pool_length_code = inquirer.prompt([inquirer.List('length', message="Pool Length", choices=[
+        data: dict[str, str] = json.loads(f.read())
+        pool_length_code: str = inquirer.prompt([inquirer.List('length', message="Pool Length", choices=[
             'SCM', 'LCM'])])['length']
         return {  # this script is specifically designed to scrape data from Microplus' systems
             'constructor': {
@@ -100,7 +99,7 @@ def get_entry_time(category: str, race_code: str, event_type: str, PlaCod: str) 
                 return utils.format_time(entry['MemIscr'])
 
 
-def get_relay_splits_and_athletes(entry: dict, pool_length: int, gender: str):
+def get_relay_splits_and_athletes(entry: dict[str], pool_length: int, gender: str):
     """Returns the splits of a given relay and the general infos of the relay's atheletes
 
     Args:
@@ -158,7 +157,7 @@ def get_relay_splits_and_athletes(entry: dict, pool_length: int, gender: str):
     }  # in athlete, only entry, no result <ENTRY entrytime="NT" eventid="48" />
 
 
-def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
+def get_heats(event: dict[str, str], eventid: int, pool_length: int) -> dict:
     """returns LENEX `heats` component for a given event
 
     Args:
@@ -179,9 +178,9 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
                                 -`heats`: single event
     """
     with open(f'scraped_data/results/NU{event["c0"]}{utils.RACE_CODES[event["d_en"]]}CLAS{event["c2"][::2]} 001.JSON', 'r') as f:
-        heats = {}
+        heats: dict[str, str] = {}
         heat_entries: dict = json.loads(f.read())
-        data: list = heat_entries['data']
+        data: list[dict[list, str]] = heat_entries['data']
         agegroup: dict[str, list] = {
             'id': f'10{eventid}',
             'age_costraints': {
@@ -200,7 +199,7 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
             agegroup['age_costraints']['agemax'] = str(date.today().year - yob)
             agegroup['age_costraints']['agemin'] = str(date.today().year - yob - 1)
 
-        entries = {
+        entries: dict[str, list[list, list]] = {
             'type': 'relays' if 'Players' in data[0].keys() else 'heats',
             'data': [[], []]  # indexes: 0 for single entries, 1 for relays
         }
@@ -363,7 +362,7 @@ def get_heats(event: dict, eventid: int, pool_length: int) -> dict:
     return {'heats': dict(sorted(heats.items())), 'agegroup': agegroup, 'entries': entries}
 
 
-def get_event_infos(event: dict, eventid: int, filename: str, number: int) -> dict:
+def get_event_infos(event: dict[str, str], eventid: int, filename: str, number: int) -> dict:
     """Return competition's generic infos
 
     Args:
@@ -416,26 +415,27 @@ def convert_to_lenex(pool_length: int) -> dict:
                 -`sessions`: LENEX `sessions` collection data
                 -`clubs`: LENEX `clubs` collection data
     """
-
-    events = []
-    prelims_eventid = []
+    
     eventid = 1
-    entries = {
+    events: list = []
+    prelims_eventid: list = []
+    sessions: dict[str, list] = {}
+    entries: dict[list, list] = {
         'athletes': [],
         'relays': []
     }
 
     # create directory to store the processed data
     pathlib.Path('processed_data').mkdir(parents=True, exist_ok=True)
-    for day, filename in enumerate(os.listdir('scraped_data/schedules/by_date')):
-        file = os.path.join('scraped_data/schedules/by_date', filename)
-
-        if os.path.isfile(file):
-            with open(file, 'r') as f:
+    for session_n in range(len(os.listdir('scraped_data/schedules/by_date')) + 1):
+        filename = f'ScheduleByDate_{session_n + 1}.JSON'
+        if os.path.isfile(f'scraped_data/schedules/by_date/{filename}'):
+            with open(f'scraped_data/schedules/by_date/{filename}', 'r') as f:
                 data: list = json.loads(f.read())['e']
-                for index, event in enumerate(data):
-                    #event_number = day*10 + index + 1
+                session = []
+                for event in data:
                     heats_data = get_heats(event, eventid, pool_length)
+
                     infos = get_event_infos(event, eventid, filename, eventid) | { #event_number = event_id 
                         'agegroup': heats_data['agegroup']}
                     race = infos | {'heats': heats_data['heats']}
@@ -468,14 +468,8 @@ def convert_to_lenex(pool_length: int) -> dict:
 
                         
                     events.append(race)
-
-    sessions = {}
-    for event in events:  # append event to the corresponding key, which is the session's number
-        if event['session'] in sessions.keys():
-            sessions[event['session']].append(event)
-        else:
-            sessions[event['session']] = [event]
-    sessions = dict(sorted(sessions.items()))
+                    session.append(race)
+                sessions[str(session_n + 1)] = session
 
     for key in sessions.keys():  # add contextual data for the session
         with open(f'scraped_data/results/{sessions[key][0]["jsonfilename"]}', 'r') as f:
@@ -494,7 +488,6 @@ def convert_to_lenex(pool_length: int) -> dict:
         infos = entry['athlete_infos']
         club_name = infos['team']['name']
         athleteid = infos['athleteid']
-        # TODO: refactoring
         if club_name not in clubs.keys():  # new club
             club_infos = infos['team']
             del infos['team']
@@ -741,7 +734,7 @@ def build_lenex() -> str:
     xml_string = dom.toprettyxml()
     part1, part2 = xml_string.split('?>')
     output_xml = part1 + 'encoding=\"{}\" standalone="no"?>\n'.format('utf-8') + part2
-    event_name = data['event']['name']
+    event_name: str = data['event']['name']
 
     return {
         'xml': output_xml,
@@ -758,4 +751,4 @@ def debug(data: dict):
     with open(f"processed_data/lenex_refactor.lef", 'w') as xfile:
         xfile.write(data['xml'])
     print(
-        f'check: {filecmp.cmp("processed_data/lenex_refactor.lef", "processed_data/lenex.lef", shallow=False)}')
+        f'check: {filecmp.cmp("processed_data/debug.lef", "examples/test.lef", shallow=False)}')
