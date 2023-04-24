@@ -55,8 +55,8 @@ def get_competition_infos() -> dict:
             'SCM', 'LCM'])])['length']
         return {  # this script is specifically designed to scrape data from Microplus' systems
             'constructor': {
-                'name': 'Microplus Informatica Srl',
-                'registration': 'Scraped and Ecoded by Alessandro Borsato, gh: @Slthy, tw: @aborsato_',
+                'name': 'Microplus Informatica Srl - Scraped and Encoded by Alessandro Borsato, gh: @Slthy, tw: @aborsato_',
+                'registration': 'Scraped and Encoded by Alessandro Borsato, gh: @Slthy, tw: @aborsato_',
                 'version': '1.0',
                 'CONTACT': {
                     'city': 'Marene',
@@ -154,7 +154,7 @@ def get_relay_splits_and_athletes(entry: dict[str], pool_length: int, gender: st
             'swimtime': splits[index-1],
         } for index in range(len(splits))],
         'player_positions': player_positions
-    }  # in athlete, only entry, no result <ENTRY entrytime="NT" eventid="48" />
+    }
 
 
 def get_heats(event: dict[str, str], eventid: int, pool_length: int) -> dict:
@@ -189,8 +189,12 @@ def get_heats(event: dict[str, str], eventid: int, pool_length: int) -> dict:
             },
             'results': []
         }
+        
+        
+
 
         cat = heat_entries['Category']['Cod']
+
         if cat in utils.JUNIOR_CATEGORIES.keys():
             agegroup['age_costraints']['agemax'] = utils.JUNIOR_CATEGORIES[cat]['agemax']
             agegroup['age_costraints']['agemin'] = utils.JUNIOR_CATEGORIES[cat]['agemin']
@@ -198,6 +202,9 @@ def get_heats(event: dict[str, str], eventid: int, pool_length: int) -> dict:
             yob = int(f'20{cat[0]}{cat[1]}')
             agegroup['age_costraints']['agemax'] = str(date.today().year - yob)
             agegroup['age_costraints']['agemin'] = str(date.today().year - yob - 1)
+        elif  heat_entries["Round"]["Cod"] == "006": #agegroup for juniopr finals
+            agegroup['age_costraints']['agemax'] = "15"
+            agegroup['age_costraints']['agemin'] = "18"
 
         entries: dict[str, list[list, list]] = {
             'type': 'relays' if 'Players' in data[0].keys() else 'heats',
@@ -274,8 +281,6 @@ def get_heats(event: dict[str, str], eventid: int, pool_length: int) -> dict:
                 
                 heatid = f'{entry["b"]}000{eventid}'
                 resultid = f'20{eventid}000{result_n}'
-                if resultid == "20141":
-                    print(result_n)
                 entrytime = get_entry_time(
                     event["c0"], event["d_en"], event["c2"][::2], entry['PlaCod'])
                 splits = []
@@ -435,7 +440,6 @@ def convert_to_lenex(pool_length: int) -> dict:
                 session = []
                 for event in data:
                     heats_data = get_heats(event, eventid, pool_length)
-
                     infos = get_event_infos(event, eventid, filename, eventid) | { #event_number = event_id 
                         'agegroup': heats_data['agegroup']}
                     race = infos | {'heats': heats_data['heats']}
