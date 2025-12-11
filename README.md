@@ -15,7 +15,7 @@ A professional, modular OOP system for scraping swimming competition data from t
 ### 🎯 Core Capabilities
 - **Web Scraping**: Automatically downloads competition data from Microplus timing systems
 - **LENEX 3.0 Encoding**: Exports standards-compliant XML files compatible with all major swimming software
-- **FINA Points**: Automatic calculation using 2023 World Aquatics base times
+- **FINA Points**: Automatic calculation using 2026 World Aquatics base times
 - **Relay Support**: Full support for relay teams with swimmer positions and splits
 - **Split Times**: Preserves intermediate split times for all races
 - **Age Groups**: Intelligent handling of junior categories and age-based classifications
