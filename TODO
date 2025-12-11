@@ -1,0 +1,37 @@
+lenex_project/
+│
+├── .gitignore          # Ignores files like __pycache__/, .venv/, etc.
+├── README.md           # Project documentation
+├── requirements.txt    # Project dependencies (e.g., lxml, requests)
+│
+├── main.py             # Your main application entry point (the "bootstrap" script)
+│
+├── src/
+│   └── lenex_encoder/
+│       │
+│       ├── __init__.py     # Makes 'lenex_encoder' a Python package
+│       │
+│       ├── model/          # LAYER 1: Core Lenex Model (Data Classes)
+│       │   ├── __init__.py
+│       │   ├── meet.py
+│       │   ├── session.py
+│       │   ├── event.py
+│       │   ├── athlete.py
+│       │   ├── result.py
+│       │   └── ranking.py
+│       │
+│       ├── adapters/       # LAYER 2: Data Source Adapters
+│       │   ├── __init__.py
+│       │   ├── data_source.py  # Defines the abstract interface (IMeetDataSource)
+│       │   ├── api_a_adapter.py # Concrete adapter for API A
+│       │   └── api_b_adapter.py # Concrete adapter for API B
+│       │
+│       └── core/           # LAYER 3: Encoder & Serializer
+│           ├── __init__.py
+│           ├── encoder.py    # The "Orchestrator" class
+│           └── serializer.py # Class to convert model objects to XML
+│
+└── tests/                  # All your unit and integration tests
+    ├── __init__.py
+    ├── test_adapters.py
+    └── test_encoder.py
